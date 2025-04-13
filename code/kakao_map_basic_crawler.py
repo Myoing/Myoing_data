@@ -12,6 +12,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
+from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+import threading
 
 # 환경 변수 로드
 load_dotenv()
@@ -22,6 +25,10 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+# 전역 변수로 드라이버 풀 관리
+driver_pool = Queue()
+MAX_DRIVERS = 4
 
 
 def setup_driver():
@@ -36,11 +43,28 @@ def setup_driver():
     return driver
 
 
+def initialize_driver_pool():
+    """드라이버 풀 초기화"""
+    for _ in range(MAX_DRIVERS):
+        driver = setup_driver()
+        driver_pool.put(driver)
+
+
+def get_driver():
+    """드라이버 풀에서 드라이버 가져오기"""
+    return driver_pool.get()
+
+
+def return_driver(driver):
+    """드라이버를 풀에 반환"""
+    driver_pool.put(driver)
+
+
 def search_places(driver, location, category):
     """카카오맵에서 특정 지역과 카테고리로 검색하는 함수"""
     logging.info(f"'{location} {category}' 검색 중...")
     driver.get("https://map.kakao.com/")
-    time.sleep(2)  # 기본 페이지 로딩 대기 시간 단축
+    time.sleep(3)  # 기본 페이지 로딩 대기
 
     try:
         # 검색 입력창 및 검색 버튼 선택
@@ -49,7 +73,7 @@ def search_places(driver, location, category):
         search_input.send_keys(f"{location} {category}")
         search_button = driver.find_element(By.ID, "search.keyword.submit")
         driver.execute_script("arguments[0].click();", search_button)
-        time.sleep(3)  # 검색 결과 로딩 대기 시간 단축
+        time.sleep(5)  # 검색 결과 로딩 대기
     except Exception as e:
         logging.error(f"검색 중 오류 발생: {e}")
         try:
@@ -57,7 +81,7 @@ def search_places(driver, location, category):
             search_input.clear()
             search_input.send_keys(f"{location} {category}")
             search_input.send_keys(Keys.RETURN)
-            time.sleep(3)
+            time.sleep(5)
         except Exception as e2:
             logging.error(f"대체 검색 방법도 실패: {e2}")
             raise
@@ -115,7 +139,7 @@ def collect_all_stores(driver, max_pages=10):
 
     while current_page <= max_pages:
         logging.info(f"페이지 {current_page} 수집 중...")
-        time.sleep(1)  # 페이지 전환 대기 시간 단축
+        time.sleep(1.5)
 
         try:
             # 첫 페이지에서만 '장소 더보기' 버튼 클릭
@@ -123,10 +147,11 @@ def collect_all_stores(driver, max_pages=10):
                 try:
                     more_button = driver.find_element(By.ID, "info.search.place.more")
                     if more_button.is_displayed():
+                        logging.info("장소 더보기 버튼 클릭하여 추가 정보 로드")
                         driver.execute_script("arguments[0].click();", more_button)
-                        time.sleep(2)  # 장소 더보기 로딩 대기 시간 단축
+                        time.sleep(1.5)
                 except NoSuchElementException:
-                    pass
+                    logging.info("장소 더보기 버튼이 없습니다.")
                 except Exception as e:
                     logging.error(f"장소 더보기 버튼 클릭 중 오류 발생: {e}")
 
@@ -156,9 +181,10 @@ def collect_all_stores(driver, max_pages=10):
                             next_button.is_displayed()
                             and "disabled" not in next_button.get_attribute("class")
                         ):
+                            logging.info("다음 페이지 버튼 클릭")
                             driver.execute_script("arguments[0].click();", next_button)
                             current_page += 1
-                            time.sleep(1)  # 페이지 전환 대기 시간 단축
+                            time.sleep(1.5)
                         else:
                             logging.info("다음 페이지 버튼을 찾을 수 없거나 비활성화됨")
                             break
@@ -169,11 +195,12 @@ def collect_all_stores(driver, max_pages=10):
                             By.ID, f"info.search.page.no{next_page_num}"
                         )
                         if next_page_button.is_displayed():
+                            logging.info(f"페이지 {current_page + 1} 번호 클릭")
                             driver.execute_script(
                                 "arguments[0].click();", next_page_button
                             )
                             current_page += 1
-                            time.sleep(1)  # 페이지 전환 대기 시간 단축
+                            time.sleep(1.5)
                         else:
                             logging.info("다음 페이지 버튼을 찾을 수 없음")
                             break
@@ -199,38 +226,70 @@ def filter_by_address(df, target_addresses):
     return filtered_df
 
 
+def process_location_category(args):
+    """지역과 카테고리 조합에 대한 데이터 수집을 처리하는 함수"""
+    location, category = args
+    driver = get_driver()
+    try:
+        logging.info(f"== {location} {category} 검색 시작 ==")
+        search_places(driver, location, category)
+        stores = collect_all_stores(driver, max_pages=10)
+        df = pd.DataFrame(stores)
+
+        # 중복 제거 (가게 이름 + 주소 기준)
+        df = df.drop_duplicates(subset=["name", "address"])
+
+        # 데이터 저장 경로 설정
+        data_dir = "data/1_location_categories"
+        combined_dir = "data/2_combined_location_categories"
+        os.makedirs(data_dir, exist_ok=True)
+        os.makedirs(combined_dir, exist_ok=True)
+
+        # CSV 파일 저장
+        csv_filename = os.path.join(data_dir, f"{location}_{category}.csv")
+        df.to_csv(csv_filename, index=False, encoding="utf-8-sig")
+
+        logging.info(
+            f"{location} {category} 데이터 수집 완료: {len(df)}개 가게 (저장 파일: {csv_filename})"
+        )
+        return df
+    except Exception as e:
+        logging.error(f"{location} {category} 처리 중 오류 발생: {e}")
+        return pd.DataFrame()
+    finally:
+        return_driver(driver)
+
+
 def main():
     """메인 함수: 여러 지역 및 카테고리 조합에 대해 데이터 수집"""
     locations = ["강남역", "홍대입구역", "성수역", "이태원역", "압구정역"]
     categories = ["식당", "카페", "술집", "노래방", "PC방", "클럽", "볼링장", "당구장"]
 
-    all_results = pd.DataFrame()
-    driver = setup_driver()
+    # 드라이버 풀 초기화
+    initialize_driver_pool()
 
     try:
-        for location in locations:
-            for category in categories:
-                logging.info(f"== {location} {category} 검색 시작 ==")
-                search_places(driver, location, category)
-                stores = collect_all_stores(driver, max_pages=10)
-                df = pd.DataFrame(stores)
+        # 모든 지역과 카테고리 조합 생성
+        tasks = [(loc, cat) for loc in locations for cat in categories]
 
-                # 중복 제거 (가게 이름 + 주소 기준)
-                df = df.drop_duplicates(subset=["name", "address"])
+        # ThreadPoolExecutor를 사용하여 병렬 처리
+        all_results = []
+        with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
+            results = list(executor.map(process_location_category, tasks))
+            all_results = [df for df in results if not df.empty]
 
-                # 결과 저장
-                all_results = pd.concat([all_results, df], ignore_index=True)
-                csv_filename = f"kakao_map_data_{location}_{category}.csv"
-                df.to_csv(csv_filename, index=False, encoding="utf-8-sig")
-                logging.info(
-                    f"{location} {category} 데이터 수집 완료: {len(df)}개 가게 (저장 파일: {csv_filename})"
-                )
+        # 모든 데이터를 하나의 파일로 저장
+        if all_results:
+            combined_df = pd.concat(all_results, ignore_index=True)
+            combined_file_path = os.path.join(combined_dir, "kakao_map_all_data.csv")
+            combined_df.to_csv(combined_file_path, index=False, encoding="utf-8-sig")
+            print(f"\n전체 데이터 저장 완료: {len(combined_df)}개 가게")
 
-        # 전체 결과 저장
-        all_results.to_csv("kakao_map_all_data.csv", index=False, encoding="utf-8-sig")
-        logging.info(f"전체 데이터 수집 완료: {len(all_results)}개 가게")
     finally:
-        driver.quit()
+        # 드라이버 풀 정리
+        while not driver_pool.empty():
+            driver = driver_pool.get()
+            driver.quit()
 
 
 if __name__ == "__main__":
