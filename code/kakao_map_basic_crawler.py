@@ -64,7 +64,7 @@ def search_places(driver, location, category):
     """카카오맵에서 특정 지역과 카테고리로 검색하는 함수"""
     logging.info(f"'{location} {category}' 검색 중...")
     driver.get("https://map.kakao.com/")
-    time.sleep(3)  # 기본 페이지 로딩 대기
+    time.sleep(2)  # 기본 페이지 로딩 대기
 
     try:
         # 검색 입력창 및 검색 버튼 선택
@@ -73,7 +73,7 @@ def search_places(driver, location, category):
         search_input.send_keys(f"{location} {category}")
         search_button = driver.find_element(By.ID, "search.keyword.submit")
         driver.execute_script("arguments[0].click();", search_button)
-        time.sleep(5)  # 검색 결과 로딩 대기
+        time.sleep(2)  # 검색 결과 로딩 대기
     except Exception as e:
         logging.error(f"검색 중 오류 발생: {e}")
         try:
@@ -81,7 +81,7 @@ def search_places(driver, location, category):
             search_input.clear()
             search_input.send_keys(f"{location} {category}")
             search_input.send_keys(Keys.RETURN)
-            time.sleep(5)
+            time.sleep(3)
         except Exception as e2:
             logging.error(f"대체 검색 방법도 실패: {e2}")
             raise
