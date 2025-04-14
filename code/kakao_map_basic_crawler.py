@@ -11,6 +11,7 @@ from selenium.common.exceptions import NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
+import re
 
 # 환경 변수 로드
 load_dotenv()
@@ -104,6 +105,54 @@ def extract_store_info(store_element):
     except NoSuchElementException:
         store_info["category"] = None
         logging.warning("카테고리를 찾을 수 없습니다.")
+
+    try:
+        # 별점 정보
+        score_count_element = store_element.find_element(
+            By.CSS_SELECTOR, "a[data-id='numberofscore']"
+        )
+        score_count_text = score_count_element.text.strip()
+        # "0건" 형식에서 숫자만 추출
+        score_count_text = re.sub(r"[^0-9]", "", score_count_text)
+        # 빈 문자열인 경우 0으로 처리
+        score_count = int(score_count_text) if score_count_text else 0
+        store_info["score_count"] = score_count
+
+        # 별점이 있는 경우에만 별점 정보 추출
+        if score_count > 0:
+            score_element = store_element.find_element(
+                By.CSS_SELECTOR, "em[data-id='scoreNum']"
+            )
+            score_text = score_element.text.strip()
+            store_info["score"] = float(score_text)
+        else:
+            store_info["score"] = None
+    except NoSuchElementException:
+        store_info["score_count"] = 0
+        store_info["score"] = None
+        logging.warning("별점 정보를 찾을 수 없습니다.")
+    except (ValueError, TypeError) as e:
+        store_info["score_count"] = 0
+        store_info["score"] = None
+        logging.warning(f"별점 정보 처리 중 오류 발생: {e}")
+
+    try:
+        # 리뷰 갯수
+        review_element = store_element.find_element(
+            By.CSS_SELECTOR, "a[data-id='review'] em[data-id='numberofreview']"
+        )
+        review_count_text = review_element.text.strip()
+        # 숫자만 추출
+        review_count_text = re.sub(r"[^0-9]", "", review_count_text)
+        # 빈 문자열인 경우 0으로 처리
+        review_count = int(review_count_text) if review_count_text else 0
+        store_info["review_count"] = review_count
+    except NoSuchElementException:
+        store_info["review_count"] = 0
+        logging.warning("리뷰 갯수 정보를 찾을 수 없습니다.")
+    except (ValueError, TypeError) as e:
+        store_info["review_count"] = 0
+        logging.warning(f"리뷰 갯수 정보 처리 중 오류 발생: {e}")
 
     try:
         # 주소
