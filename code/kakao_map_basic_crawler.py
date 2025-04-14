@@ -1,6 +1,5 @@
 import logging
 import time
-import re
 import os
 import pandas as pd
 from dotenv import load_dotenv
@@ -8,13 +7,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-import threading
 
 # 환경 변수 로드
 load_dotenv()
@@ -218,12 +214,6 @@ def collect_all_stores(driver, max_pages=10):
             break
 
     return all_stores
-
-
-def filter_by_address(df, target_addresses):
-    """특정 주소에 해당하는 가게만 필터링하는 함수"""
-    filtered_df = df[df["address"].str.contains("|".join(target_addresses), na=False)]
-    return filtered_df
 
 
 def process_location_category(args):
