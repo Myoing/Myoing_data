@@ -1,7 +1,6 @@
 python-dotenv
-
 requests
-
 selenium
 pandas
 webdriver-manager
+concurrent-futures
