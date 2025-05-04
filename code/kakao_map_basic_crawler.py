@@ -126,14 +126,14 @@ def extract_store_info(store_element):
             score_text = score_element.text.strip()
             store_info["score"] = float(score_text)
         else:
-            store_info["score"] = None
+            store_info["score"] = -1
     except NoSuchElementException:
         store_info["score_count"] = 0
-        store_info["score"] = None
+        store_info["score"] = -1
         logging.warning("별점 정보를 찾을 수 없습니다.")
     except (ValueError, TypeError) as e:
         store_info["score_count"] = 0
-        store_info["score"] = None
+        store_info["score"] = -1
         logging.warning(f"별점 정보 처리 중 오류 발생: {e}")
 
     try:
