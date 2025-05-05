@@ -29,7 +29,20 @@ MAX_DRIVERS = 4
 
 
 def setup_driver():
-    """셀레니움 드라이버를 설정하는 함수"""
+    """
+    Selenium 웹 드라이버 설정 및 초기화 함수.
+
+    입력값:
+        없음
+
+    반환값:
+        webdriver.Chrome: 설정이 완료된 Chrome 웹 드라이버 객체.
+
+    설명:
+        - Chrome 브라우저의 알림 비활성화 옵션 적용.
+        - 필요시 headless 모드 사용 가능(주석 처리됨).
+        - 생성된 브라우저 창을 최소화하여 시스템 자원 절약.
+    """
     options = webdriver.ChromeOptions()
     options.add_argument("--disable-notifications")
     # 필요한 경우 headless 모드 사용 가능
@@ -41,24 +54,73 @@ def setup_driver():
 
 
 def initialize_driver_pool():
-    """드라이버 풀 초기화"""
+    """
+    드라이버 풀 초기화 함수.
+
+    입력값:
+        없음
+
+    반환값:
+        없음
+
+    설명:
+        - 전역 변수 MAX_DRIVERS에 지정된 수만큼 웹 드라이버 인스턴스 생성.
+        - 생성된 드라이버를 전역 driver_pool 큐에 추가하여 병렬 처리 준비.
+    """
     for _ in range(MAX_DRIVERS):
         driver = setup_driver()
         driver_pool.put(driver)
 
 
 def get_driver():
-    """드라이버 풀에서 드라이버 가져오기"""
+    """
+    드라이버 풀에서 사용 가능한 드라이버 가져오기 함수.
+
+    입력값:
+        없음
+
+    반환값:
+        webdriver.Chrome: 드라이버 풀에서 가져온 Chrome 웹 드라이버 객체.
+
+    설명:
+        - driver_pool 큐에서 사용 가능한 드라이버를 가져옴.
+        - 풀이 비어있는 경우 큐가 비워질 때까지 대기.
+    """
     return driver_pool.get()
 
 
 def return_driver(driver):
-    """드라이버를 풀에 반환"""
+    """
+    사용 완료된 드라이버를 풀에 반환하는 함수.
+
+    입력값:
+        driver (webdriver.Chrome): 반환할 Chrome 웹 드라이버 객체.
+
+    반환값:
+        없음
+
+    설명:
+        - 작업이 완료된 드라이버를 driver_pool 큐에 다시 추가하여 재사용 가능하게 함.
+    """
     driver_pool.put(driver)
 
 
 def search_places(driver, location, category):
-    """카카오맵에서 특정 지역과 카테고리로 검색하는 함수"""
+    """
+    카카오맵에서 특정 지역과 카테고리 조합으로 검색을 수행하는 함수.
+
+    입력값:
+        driver (webdriver.Chrome): 사용할 Chrome 웹 드라이버 객체.
+        location (str): 검색할 지역명(예: '강남역', '홍대입구역').
+        category (str): 검색할 카테고리명(예: '식당', '카페', '클럽').
+
+    반환값:
+        없음
+
+    설명:
+        - 카카오맵 웹사이트 접속 후 검색창에 지역명과 카테고리를 입력하여 검색.
+        - 검색 버튼 클릭에 실패할 경우 Enter 키 입력을 통한 대체 검색 시도.
+    """
     logging.info(f"'{location} {category}' 검색 중...")
     driver.get("https://map.kakao.com/")
     time.sleep(2)  # 기본 페이지 로딩 대기
@@ -85,7 +147,26 @@ def search_places(driver, location, category):
 
 
 def extract_store_info(store_element):
-    """가게 요소에서 기본 정보를 추출하는 함수"""
+    """
+    검색 결과의 가게 요소에서 상세 정보를 추출하는 함수.
+
+    입력값:
+        store_element (WebElement): 카카오맵 검색 결과의 가게 정보를 포함하는 웹 요소.
+
+    반환값:
+        dict: 다음 키를 포함하는 가게 정보 딕셔너리.
+            - name (str): 가게 이름
+            - category (str): 가게 카테고리
+            - score_count (int): 별점 평가 수
+            - score (float): 평균 별점(-1은 별점 없음을 의미)
+            - review_count (int): 리뷰 수
+            - address (str): 가게 주소
+            - hours (str): 영업 시간
+
+    설명:
+        - 각 정보 추출 시 요소가 없는 경우 None 또는 기본값(-1, 0 등) 반환.
+        - 별점과 리뷰 정보는 정규식을 통해 숫자만 추출하여 처리.
+    """
     store_info = {}
 
     try:
@@ -178,7 +259,23 @@ def extract_store_info(store_element):
 
 
 def collect_all_stores(driver, max_pages=20):
-    """'장소 더보기' 버튼과 페이지 번호를 활용하여 최대 max_pages까지의 가게 정보를 수집하는 함수"""
+    """
+    카카오맵 검색 결과에서 가게 정보를 페이지별로 수집하는 함수.
+
+    입력값:
+        driver (webdriver.Chrome): 사용할 Chrome 웹 드라이버 객체.
+        max_pages (int, 기본값=20): 수집할 최대 페이지 수.
+
+    반환값:
+        list: 각 가게 정보를 담은 딕셔너리 객체들의 리스트.
+
+    설명:
+        - 최대 max_pages까지 페이지를 이동하며 가게 정보 수집.
+        - 첫 페이지에서는 '장소 더보기' 버튼을 클릭하여 더 많은 결과 로드.
+        - 10페이지 이후에는 리뷰가 있는 가게만 수집(효율성 향상).
+        - 리뷰가 있는 가게가 50개에 도달하면 조기 종료(목표 달성).
+        - 페이지 이동 시 5페이지 단위로 '다음' 버튼, 그 외에는 페이지 번호 클릭.
+    """
     all_stores = []
     current_page = 1
     stores_with_reviews = 0
@@ -352,7 +449,24 @@ def collect_all_stores(driver, max_pages=20):
 
 
 def process_location_category(args):
-    """지역과 카테고리 조합에 대한 데이터 수집을 처리하는 함수"""
+    """
+    지역과 카테고리 조합에 대한 가게 데이터 수집 및 저장 처리 함수.
+
+    입력값:
+        args (tuple): (location, category) 형식의 튜플.
+            - location (str): 검색할 지역명(예: '강남역').
+            - category (str): 검색할 카테고리명(예: '식당').
+
+    반환값:
+        pandas.DataFrame: 수집된 가게 정보가 담긴 데이터프레임. 오류 발생 시 빈 데이터프레임 반환.
+
+    설명:
+        - 드라이버 풀에서 드라이버를 가져와 검색 및 정보 수집 수행.
+        - 수집된 가게 정보를 데이터프레임으로 변환하고 중복 제거.
+        - CSV 파일 형식으로 지역별 카테고리 데이터 저장.
+        - 리뷰가 있는 가게가 목표치(50개)보다 적을 경우 경고 메시지 출력.
+        - 작업 완료 후 드라이버를 풀에 반환.
+    """
     location, category = args
     driver = get_driver()
     try:
@@ -395,7 +509,28 @@ def process_location_category(args):
 
 
 def main():
-    """메인 함수: 여러 지역 및 카테고리 조합에 대해 데이터 수집"""
+    """
+    카카오맵 크롤링 메인 실행 함수.
+
+    입력값:
+        없음
+
+    반환값:
+        없음
+
+    설명:
+        - 지정된 지역 및 카테고리 조합에 대한 데이터 수집 작업 수행.
+        - 병렬 처리를 위한 ThreadPoolExecutor 사용하여 효율적인 크롤링 수행.
+        - 수집된 모든 데이터를 통합하여 하나의 CSV 파일로 저장.
+        - 작업 완료 후 드라이버 풀의 모든 드라이버 종료 및 정리.
+        - 주요 처리 단계:
+          1. 데이터 저장 디렉토리 생성
+          2. 드라이버 풀 초기화
+          3. 지역과 카테고리 조합 생성
+          4. 병렬 처리로 각 조합에 대한 데이터 수집
+          5. 결과 통합 및 저장
+          6. 드라이버 정리
+    """
     # combined_dir 디렉토리 생성
     combined_dir = "data/2_combined_location_categories"
     os.makedirs(combined_dir, exist_ok=True)

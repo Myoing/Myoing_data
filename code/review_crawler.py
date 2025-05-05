@@ -28,7 +28,14 @@ driver_lock = Lock()  # 드라이버 풀 접근용 락
 
 
 def setup_driver():
-    """셀레니움 드라이버 설정 함수"""
+    """
+    셀레니움 웹드라이버 설정 및 초기화 함수
+
+    ChromeDriver를 설정하고 필요한 옵션을 적용하여 브라우저 인스턴스를 생성함.
+
+    반환값:
+        webdriver.Chrome: 설정된 크롬 드라이버 인스턴스
+    """
     options = webdriver.ChromeOptions()
     options.add_argument("--disable-notifications")
     # headless 모드 사용 시 아래 주석 해제
@@ -40,19 +47,40 @@ def setup_driver():
 
 
 def initialize_driver_pool():
-    """드라이버 풀 초기화"""
+    """
+    드라이버 풀 초기화 함수
+
+    MAX_DRIVERS 수만큼 웹드라이버 인스턴스를 생성하여 드라이버 풀에 추가함.
+    병렬 처리를 위한 드라이버 자원 풀을 준비하는 과정.
+    """
     for _ in range(MAX_DRIVERS):
         driver_pool.put(setup_driver())
 
 
 def get_driver():
-    """드라이버 풀에서 드라이버 가져오기 (락 적용)"""
+    """
+    드라이버 풀에서 드라이버 가져오기
+
+    스레드 안전하게 드라이버 풀에서 사용 가능한 드라이버를 가져옴.
+    다른 스레드와의 경쟁 상태를 방지하기 위해 락을 사용함.
+
+    반환값:
+        webdriver.Chrome: 드라이버 풀에서 가져온 웹드라이버 인스턴스
+    """
     with driver_lock:
         return driver_pool.get()
 
 
 def return_driver(driver):
-    """드라이버를 풀에 반환 (유효성 체크 후)"""
+    """
+    드라이버를 풀에 반환하는 함수
+
+    사용이 끝난 드라이버를 점검하고 유효한 상태인 경우 풀에 반환함.
+    유효하지 않은 경우 새 드라이버로 대체함.
+
+    매개변수:
+        driver (webdriver.Chrome): 풀에 반환할 웹드라이버 인스턴스
+    """
     try:
         driver.current_url
         with driver_lock:
@@ -68,9 +96,17 @@ def return_driver(driver):
 
 def search_store_detail(driver, store_name):
     """
-    1. 카카오맵 메인페이지에서 검색창에 store_name 입력 후 검색 버튼 클릭
-    2. placelist 내 각 결과의 link_name(클래스 "a.link_name", title 속성 또는 내부 텍스트)과 store_name을 비교하여
-       일치하는 경우 상세보기 버튼(data-id="moreview")을 클릭해 상세 페이지(후기 탭 포함)로 이동
+    카카오맵에서 매장 검색 및 상세 페이지 접근 함수
+
+    카카오맵에서 매장명을 검색하고 일치하는 결과를 찾아 상세 페이지로 이동한 후
+    리뷰 탭을 선택함.
+
+    매개변수:
+        driver (webdriver.Chrome): 사용할 웹드라이버 인스턴스
+        store_name (str): 검색할 매장명
+
+    반환값:
+        bool: 상세 페이지 접근 성공 여부 (True: 성공, False: 실패)
     """
     logging.info(f"'{store_name}' 상세정보 검색 시작...")
     driver.get("https://map.kakao.com/")
@@ -171,15 +207,25 @@ def search_store_detail(driver, store_name):
 
 def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=2.0):
     """
-    상세 페이지 내 후기 영역에서 리뷰 항목(div.inner_review)을 반복 처리하여
-    사용자 평점(별점은 <span class="figure_star on"> 개수로 계산), 작성일, 리뷰 내용, 그리고 사용자(리뷰어) 이름 등을 추출합니다.
-    반환되는 각 리뷰 항목은 다음 딕셔너리 형태입니다.
-      {
-        "reviewer_name": <텍스트 또는 빈 문자열>,
-        "user_rating": <평점 (float)>,
-        "review_date": <작성일 (str)>,
-        "review_content": <리뷰 전체 텍스트 (str)>
-      }
+    카카오맵 매장 상세 페이지에서 리뷰 스크롤링 및 수집 함수
+
+    매장 상세 페이지 내 리뷰 영역을 스크롤하며 지정된 개수만큼 리뷰를 수집함.
+    각 리뷰에서 사용자명, 평점, 작성일, 리뷰 내용을 추출함.
+
+    매개변수:
+        driver (webdriver.Chrome): 사용할 웹드라이버 인스턴스
+        store_name (str): 매장명 (로깅용)
+        target_count (int): 수집할 목표 리뷰 개수 (기본값: 50)
+        scroll_wait (float): 스크롤 간 대기 시간(초) (기본값: 2.0)
+
+    반환값:
+        list: 수집된 리뷰 목록. 각 리뷰는 딕셔너리로 다음 정보를 포함:
+            {
+                "reviewer_name": 리뷰어 이름,
+                "user_rating": 평점(float, 0~5),
+                "review_date": 작성일,
+                "review_content": 리뷰 내용
+            }
     """
     reviews = []
     last_count = 0
@@ -298,9 +344,19 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
 
 def process_store_reviews(store_record):
     """
-    한 가게의 리뷰를 수집하는 함수
-    store_record: DataFrame의 행(Series)로 { 'name': 가게명, 'address': 주소, ... } 포함
-    반환: 리뷰 DataFrame, 성공 여부 (True/False)
+    단일 매장의 리뷰 수집 및 처리 함수
+
+    매장 정보를 바탕으로 해당 매장의 리뷰를 수집하고 처리하여 데이터프레임으로 변환함.
+
+    매개변수:
+        store_record (pd.Series): 매장 정보를 담은 DataFrame의 행
+                                 필수 필드: 'name' (매장명)
+                                 선택 필드: 'address' (매장 주소)
+
+    반환값:
+        tuple: (리뷰 데이터프레임, 성공 여부)
+            - pd.DataFrame: 수집된 리뷰 데이터프레임 (성공 시)
+            - bool: 수집 성공 여부 (True: 성공, False: 실패)
     """
     store_name = store_record["name"]
     store_address = store_record.get("address", "")
@@ -374,14 +430,18 @@ def process_store_reviews(store_record):
 
 def main():
     """
-    메인 함수:
-    1. data/4_filtered_all/all_filtered_data.csv 파일을 로드하여 각 가게에 대해 리뷰 50개씩 수집
-    2. 수집된 리뷰에 가게 정보(name, address) 추가 후 data/6_reviews_about_4 폴더에 두 개의 CSV 파일로 저장
-       - 모든 리뷰 데이터 파일 (empty review_content 포함): kakao_map_reviews_all.csv
-       - 리뷰 내용이 비어있지 않은 행만 필터링한 파일: kakao_map_reviews_filtered.csv
-       CSV 칼럼 순서는 store_name, store_address, user_name, user_rating, review_date, review_content 입니다.
+    메인 실행 함수
 
-    ※ 전체 데이터에 대해 실행합니다.
+    전체 매장 데이터를 로드하고 병렬 처리를 통해 각 매장의 리뷰를 수집한 후,
+    결과를 CSV 파일로 저장하는 전체 프로세스를 실행함.
+
+    처리 과정:
+    1. 'data/4_filtered_all/all_filtered_data.csv'에서 매장 데이터 로드
+    2. 멀티스레딩을 사용해 병렬로 각 매장의 리뷰 수집 (매장당 최대 50개 리뷰)
+    3. 수집된 리뷰 데이터를 'data/6_reviews_about_4' 폴더에 저장:
+       - 'kakao_map_reviews_all.csv': 모든 리뷰 (빈 리뷰 포함)
+       - 'kakao_map_reviews_filtered.csv': 리뷰 내용이 있는 리뷰만 필터링
+    4. 리뷰 수집에 실패한 매장 목록을 'failed_stores.txt'에 저장
     """
     filtered_data_path = "data/4_filtered_all/all_filtered_data.csv"
     if not os.path.exists(filtered_data_path):
@@ -399,6 +459,17 @@ def main():
     initialize_driver_pool()
 
     def process_store_with_lock(store_row):
+        """
+        락을 사용하여 매장 처리 함수
+
+        스레드 안전하게 매장 리뷰를 수집하고 결과를 글로벌 리스트에 추가함.
+
+        매개변수:
+            store_row (pd.Series): 처리할 매장 정보를 담은 Series
+
+        반환값:
+            pd.DataFrame or None: 수집된 리뷰 DataFrame 또는 None(실패 시)
+        """
         store_name = store_row["name"]
         logging.info(f"=== '{store_name}' 리뷰 수집 시작 ===")
         df_reviews, success = process_store_reviews(store_row)
