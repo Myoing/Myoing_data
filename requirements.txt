@@ -1,6 +1,7 @@
 python-dotenv
 requests
 selenium
+bs4
 pandas
 webdriver-manager
 concurrent-futures
