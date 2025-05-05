@@ -13,7 +13,7 @@ Myoing_data는 카카오맵 기반 장소 정보 및 사용자 리뷰를 수집�
 | --- | --- | --- | --- |
 | 1️⃣ 수집 | 지역 × 업종에 대해 카카오맵 웹페이지에서 가게 목록 크롤링 | `kakao_map_basic_crawler.py` | `data/1_location_categories/` |
 | 2️⃣ 정제 | 도로명 기반 지역 필터, 심야 영업시간 필터, 리뷰 존재 여부 필터 적용 | `filters.py` | `data/3_filtered_location_categories/` |
-| 3️⃣ 가공 | 상세 페이지로 이동하여 전화번호 및 리뷰 데이터 수집 | `review_crawler.py` | `data/6_reviews_about_4/` |
+| 3️⃣ 가공 | 상세 페이지로 이동하여 전화번호 및 리뷰 데이터 수집(기존 데이터에 없던 의미 있는 추가 정보를 부여하거나, 2차적인 크롤링 등을 통해 속성을 확장: 정보 확장(enrichment)) | `review_crawler.py` | `data/6_reviews_about_4/` |
 | 4️⃣ 저장 | 단계별 결과를 CSV로 저장하고 폴더 구조로 관리 | 각 모듈 내부 | 각 `data/` 하위 디렉토리 |
 | 5️⃣ 소비(외부) | 이 데이터는 외부 레포에서 추천 시스템/분석/시각화 등에 활용 예정 | ❌ | 외부 서비스 또는 모델 학습 파이프라인으로 연동 |
 
