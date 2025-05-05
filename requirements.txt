@@ -1,0 +1,12 @@
+python-dotenv
+requests
+selenium
+bs4
+pandas
+webdriver-manager
+fastapi
+uvicorn
+pydantic
+starlette
+python-multipart
+aiofiles
