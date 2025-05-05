@@ -1,0 +1,52 @@
+Myoing_data/
+│
+├── .env                            # 환경 변수 파일
+│
+├── code/                           # 코드 디렉토리
+│   ├── __init__.py                 # 파이썬 패키지 초기화 파일
+│   ├── filters.py                  # 필터링 모듈
+│   ├── kakao_map_basic_crawler.py  # 카카오맵 기본 정보 크롤러
+│   └── review_crawler.py           # 리뷰 크롤링 모듈
+│
+├── data/                           # 데이터 디렉토리
+│   ├── 1_location_categories/      # 1단계: 지역별 카테고리 데이터
+│   │
+│   ├── 2_combined_location_categories/  # 2단계: 통합된 지역 카테고리 데이터
+│   │
+│   ├── 3_filtered_location_categories/  # 3단계: 필터링된 지역별 카테고리 데이터
+│   │
+│   ├── 4_filtered_all/                  # 4단계: 전체 필터링 데이터
+│   │
+│   ├── 5_filtered_clubs/                # 5단계: 필터링된 클럽 데이터
+│   │
+│   └── 6_reviews_about_4/               # 6단계: 리뷰 데이터
+│
+├── legacy/                               # 레거시 코드
+│   ├── crawler/
+│   │   ├── __init__.py
+│   │   ├── basic_crawler.py
+│   │   ├── config.py
+│   │   ├── detail_crawler.py
+│   │   ├── filter_utils.py
+│   │   ├── main.py
+│   │   └── review_crawler.py
+│   │
+│   └── kakao_api_test.py
+│
+├── LICENSE                               # 라이선스 파일
+├── main.py                               # 메인 실행 파일
+├── README.md                             # 프로젝트 설명 파일
+└── requirements.txt                      # 의존성 패키지 목록
+
+## 프로젝트 실행 순서
+1. main.py 실행
+2. 3단계 순차 진행:
+   - 1단계: 카카오맵 기본 크롤링 (kakao_map_basic_crawler.py)
+   - 2단계: 데이터 필터링 (filters.py)
+   - 3단계: 리뷰 크롤링 (review_crawler.py)
+
+## 모듈화 진행 후 다시 되돌린 이유 
+
+모듈화를 통해 공통 로직을 분리하고 재사용성을 높이고자 했으나, 실행 흐름상 모듈 간 의존성이 높고, 특히 driver_pool, initialize_driver_pool 등 공유 자원 제어 및 초기화에 있어 동기화 문제가 발생. 
+각 모듈 내부에서 독립적으로 처리하기보다는 main.py에서 전반적인 흐름을 직접 통제하는 방식이 예외 처리와 상태 관리 측면에서 더 안정적이고 명확했음. 
+결과적으로, 모듈화를 통한 분리보다 가독성과 유지보수를 고려한 단일 실행 컨트롤러 구조가 더 적절하다고 판단하여 기존 구조로 되돌림.
