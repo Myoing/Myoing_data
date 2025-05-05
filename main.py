@@ -79,6 +79,53 @@ def cleanup_driver_pool():
 
 def main():
     try:
+        # 1단계: 기본 크롤링 (kakao_map_basic_crawler.py)
+        logging.info("====== 1단계: 기본 크롤링 작업 시작 ======")
+
+        # 드라이버 풀 초기화
+        initialize_driver_pool()
+
+        # 크롤러 모듈 설정
+        basic_crawler.driver_pool = driver_pool
+        basic_crawler.MAX_DRIVERS = MAX_DRIVERS
+        basic_crawler.driver_lock = driver_lock
+        basic_crawler.original_initialize_driver_pool = (
+            basic_crawler.initialize_driver_pool
+        )
+        basic_crawler.initialize_driver_pool = lambda: None
+
+        # 크롤링 실행 - 기본 위치와 카테고리 설정
+        locations = ["강남역", "홍대입구역", "성수역", "압구정역", "이태원역"]
+        categories = [
+            "식당",
+            "카페",
+            "술집",
+            "노래방",
+            "PC방",
+            "볼링장",
+            "당구장",
+            "클럽",
+        ]
+
+        # 병렬 처리를 위한 스레드풀 생성
+        with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
+            # 위치 및 카테고리별 작업 제출
+            futures = []
+            for location in locations:
+                for category in categories:
+                    future = executor.submit(
+                        basic_crawler.process_location_category, (location, category)
+                    )
+                    futures.append(future)
+
+            # 모든 작업이 완료될 때까지 대기
+            for future in futures:
+                future.result()
+
+        # 드라이버 풀 정리
+        cleanup_driver_pool()
+        logging.info("====== 1단계: 기본 크롤링 작업 완료 ======")
+
         # 2단계: 필터링 (filters.py)
         logging.info("====== 2단계: 필터링 작업 시작 ======")
 
