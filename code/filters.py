@@ -194,7 +194,7 @@ def search_store_detail(driver: webdriver.Chrome, store_name: str):
         except:
             pass
     if not found:
-        return "", "-1"
+        return "-1", "-1"
 
     time.sleep(1.5)
     handles = driver.window_handles
