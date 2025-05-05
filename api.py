@@ -247,7 +247,7 @@ async def run_review_crawler(task_id: str, params: CrawlingRequest):
             "basic_data": len(os.listdir("data/1_location_categories")),
             "filtered_data": len(os.listdir("data/3_filtered_location_categories")),
             "review_data": os.path.exists(
-                "data/6_reviews_about_4/kakao_map_reviews_test_filtered.csv"
+                "data/6_reviews_about_4/kakao_map_reviews_filtered.csv"
             ),
         }
         tasks[task_id].result = data_stats
