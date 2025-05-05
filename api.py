@@ -85,7 +85,7 @@ def setup_driver():
 
 def initialize_driver_pool():
     """드라이버 풀 초기화"""
-    global driver_pool
+    # global driver_pool - 참조만 하는 경우 global 선언 불필요
 
     # 기존 드라이버 풀 정리
     cleanup_driver_pool()
@@ -99,7 +99,7 @@ def initialize_driver_pool():
 
 def cleanup_driver_pool():
     """드라이버 풀의 모든 드라이버 종료 및 정리"""
-    global driver_pool
+    global driver_pool  # 값을 할당하는 경우 global 선언 필요
 
     logging.info("드라이버 풀 정리 중...")
     temp_pool = Queue()
@@ -116,7 +116,7 @@ def cleanup_driver_pool():
             break
 
     # 빈 큐로 초기화
-    driver_pool = Queue()
+    driver_pool = Queue()  # 값 할당
 
 
 # 백그라운드 작업 함수

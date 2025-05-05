@@ -42,7 +42,7 @@ def setup_driver():
 
 def initialize_driver_pool():
     """드라이버 풀 초기화"""
-    global driver_pool
+    # global driver_pool - 참조만 하는 경우 global 선언 불필요
 
     # 기존 드라이버 풀 정리
     cleanup_driver_pool()
