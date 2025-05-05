@@ -1,0 +1,135 @@
+import logging
+import time
+import os
+import pandas as pd
+from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from queue import Queue
+from threading import Lock
+
+# 공통으로 사용할 드라이버 풀 관련 변수
+driver_pool = Queue()
+MAX_DRIVERS = 4
+driver_lock = Lock()
+
+# 각 모듈 임포트
+import code.kakao_map_basic_crawler as basic_crawler
+import code.filters as filters
+import code.review_crawler as review_crawler
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+
+def setup_driver():
+    """셀레니움 드라이버 설정 함수"""
+    options = webdriver.ChromeOptions()
+    options.add_argument("--disable-notifications")
+    # headless 모드 사용 시 아래 주석 해제
+    # options.add_argument("--headless")
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.minimize_window()
+    return driver
+
+
+def initialize_driver_pool():
+    """드라이버 풀 초기화"""
+    global driver_pool
+
+    # 기존 드라이버 풀 정리
+    cleanup_driver_pool()
+
+    # 새 드라이버 생성
+    logging.info(f"{MAX_DRIVERS}개의 웹 드라이버를 초기화합니다...")
+    for _ in range(MAX_DRIVERS):
+        driver_pool.put(setup_driver())
+    logging.info("드라이버 풀 초기화 완료")
+
+
+def cleanup_driver_pool():
+    """드라이버 풀의 모든 드라이버 종료 및 정리"""
+    global driver_pool
+
+    logging.info("드라이버 풀 정리 중...")
+    temp_pool = Queue()
+
+    # 기존 드라이버 풀에서 모든 드라이버를 가져와 종료
+    while not driver_pool.empty():
+        try:
+            driver = driver_pool.get(block=False)
+            try:
+                driver.quit()
+                logging.info("드라이버 종료 완료")
+            except Exception as e:
+                logging.warning(f"드라이버 종료 중 오류 발생: {e}")
+        except Exception:
+            break
+
+    # 빈 큐로 초기화
+    driver_pool = Queue()
+
+
+def main():
+    try:
+        # 2단계: 필터링 (filters.py)
+        logging.info("====== 2단계: 필터링 작업 시작 ======")
+
+        # 드라이버 풀 초기화
+        initialize_driver_pool()
+
+        # 필터링 모듈 설정
+        filters.driver_pool = driver_pool
+        filters.MAX_DRIVERS = MAX_DRIVERS
+        filters.driver_lock = driver_lock
+        filters.original_initialize_driver_pool = filters.initialize_driver_pool
+        filters.initialize_driver_pool = lambda: None
+
+        # 필터링 실행
+        filters.process_all_locations()
+
+        # 드라이버 풀 정리
+        cleanup_driver_pool()
+        logging.info("====== 2단계: 필터링 작업 완료 ======")
+
+        # 3단계: 리뷰 크롤링 (review_crawler.py)
+        logging.info("====== 3단계: 리뷰 크롤링 시작 ======")
+
+        # 드라이버 풀 다시 초기화
+        initialize_driver_pool()
+
+        # 리뷰 크롤러 모듈 설정
+        review_crawler.driver_pool = driver_pool
+        review_crawler.MAX_DRIVERS = MAX_DRIVERS
+        review_crawler.driver_lock = driver_lock
+        review_crawler.original_initialize_driver_pool = (
+            review_crawler.initialize_driver_pool
+        )
+        review_crawler.initialize_driver_pool = lambda: None
+
+        # 리뷰 크롤링 실행
+        review_crawler.main()
+
+        # 드라이버 풀 정리
+        cleanup_driver_pool()
+        logging.info("====== 3단계: 리뷰 크롤링 완료 ======")
+
+        logging.info("모든 작업이 완료되었습니다!")
+
+    except Exception as e:
+        logging.error(f"실행 중 오류 발생: {e}")
+
+    finally:
+        # 최종 드라이버 정리
+        cleanup_driver_pool()
+
+
+if __name__ == "__main__":
+    main()
