@@ -3,28 +3,20 @@ FROM python:3.10-slim
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# 크롬 및 관련 종속성 설치
+# 크롬 설치 (보안 개선 방식으로 변경)
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     unzip \
     curl \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 크롬드라이버 설치 - 수정된 방식
-RUN apt-get update && apt-get install -y unzip \
-    && CHROME_MAJOR_VERSION=$(google-chrome-stable --version | sed 's/Google Chrome \([0-9]*\).*/\1/') \
-    && CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}") \
-    && wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" \
-    && unzip chromedriver_linux64.zip \
-    && mv chromedriver /usr/local/bin/chromedriver \
-    && chmod +x /usr/local/bin/chromedriver \
-    && rm chromedriver_linux64.zip
+# ChromeDriver는 런타임에 webdriver-manager가 자동으로 관리함
 
 # 필요한 디렉토리 구조 생성
 RUN mkdir -p /app/data/1_location_categories \
