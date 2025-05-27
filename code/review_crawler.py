@@ -350,16 +350,16 @@ def process_store_reviews(store_record):
 
     매개변수:
         store_record (pd.Series): 매장 정보를 담은 DataFrame의 행
-                                 필수 필드: 'name' (매장명)
-                                 선택 필드: 'address' (매장 주소)
+                                 필수 필드: 'str_name' (매장명)
+                                 선택 필드: 'str_address' (매장 주소)
 
     반환값:
         tuple: (리뷰 데이터프레임, 성공 여부)
             - pd.DataFrame: 수집된 리뷰 데이터프레임 (성공 시)
             - bool: 수집 성공 여부 (True: 성공, False: 실패)
     """
-    store_name = store_record["name"]
-    store_address = store_record.get("address", "")
+    store_name = store_record["str_name"]
+    store_address = store_record.get("str_address", "")
     driver = None
     collected_reviews = []
 
@@ -470,7 +470,7 @@ def main():
         반환값:
             pd.DataFrame or None: 수집된 리뷰 DataFrame 또는 None(실패 시)
         """
-        store_name = store_row["name"]
+        store_name = store_row["str_name"]
         logging.info(f"=== '{store_name}' 리뷰 수집 시작 ===")
         df_reviews, success = process_store_reviews(store_row)
         if not success or df_reviews.empty:
@@ -483,7 +483,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
         future_to_store = {
-            executor.submit(process_store_with_lock, store_row): store_row["name"]
+            executor.submit(process_store_with_lock, store_row): store_row["str_name"]
             for _, store_row in stores_data.iterrows()
         }
         for future in as_completed(future_to_store):

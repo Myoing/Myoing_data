@@ -191,7 +191,7 @@ def filter_by_address(df: pd.DataFrame, location: str) -> pd.DataFrame:
         logging.warning(f"⚠️ {location}에 대한 주소 필터가 정의되어 있지 않습니다.")
         return df
     df = df.copy()
-    df["_addr_norm"] = df["address"].apply(normalize_address)
+    df["_addr_norm"] = df["str_address"].apply(normalize_address)
     nf_list = [normalize_address(a) for a in ADDRESS_FILTERS[location]]
     keep = []
     for i, row in df.iterrows():
@@ -211,35 +211,43 @@ def filter_by_opening_hours(df: pd.DataFrame) -> pd.DataFrame:
     야간 영업 시간(21시~09시)을 기준으로 데이터 필터링 함수.
 
     입력값:
-        df (pandas.DataFrame): 필터링할 데이터프레임(hours 컬럼 포함).
+        df (pandas.DataFrame): 필터링할 데이터프레임(run_time_start, run_time_end 컬럼 포함).
 
     반환값:
         pandas.DataFrame: 야간 영업 조건을 만족하는 행들만 포함된 데이터프레임.
 
     설명:
-        - 'hours' 컬럼에서 영업 시간 패턴(HH:MM ~ HH:MM) 추출.
+        - 'run_time_start'와 'run_time_end' 컬럼에서 영업 시간 추출.
         - 영업 시작 시간이 21시 이후이거나 종료 시간이 9시 이전인 경우 선택.
         - 영업 시작 시간이 종료 시간보다 큰 경우(ex: 22:00 ~ 02:00) 야간 영업으로 간주.
-        - 패턴 추출 불가 또는 'hours' 컬럼 없는 행은 제외.
+        - 시간 정보가 없는 행은 제외.
     """
-    pattern = re.compile(r"(\d{1,2}):(\d{2})\s*[~-]\s*(\d{1,2}):(\d{2})")
     rows = []
     for _, row in df.iterrows():
-        hrs = row.get("hours", "")
-        if not isinstance(hrs, str):
+        start_time = row.get("run_time_start", "")
+        end_time = row.get("run_time_end", "")
+
+        if not isinstance(start_time, str) or not isinstance(end_time, str):
             continue
-        m = pattern.search(hrs)
-        if not m:
+
+        if start_time == "상세 정보 확인 요망" or end_time == "상세 정보 확인 요망":
             continue
-        sh, sm, eh, em = map(int, m.groups())
-        if eh == 0:
-            eh = 24
-        if sh < eh:
-            is_night = sh >= 21 or eh <= 9
-        else:
-            is_night = True
-        if is_night:
-            rows.append(row)
+
+        try:
+            sh, sm = map(int, start_time.split(":"))
+            eh, em = map(int, end_time.split(":"))
+
+            if eh == 0:
+                eh = 24
+            if sh < eh:
+                is_night = sh >= 21 or eh <= 9
+            else:
+                is_night = True
+            if is_night:
+                rows.append(row)
+        except (ValueError, TypeError):
+            continue
+
     return pd.DataFrame(rows, columns=df.columns)
 
 
@@ -605,7 +613,7 @@ def process_all_locations():
         club_path = os.path.join(data_dir, f"{loc}_클럽.csv")
         if os.path.exists(club_path):
             cdf = pd.read_csv(club_path, encoding="utf-8-sig")
-            c1 = cdf[cdf["category"].str.contains("나이트,클럽", na=False)]
+            c1 = cdf[cdf["str_sub_category"].str.contains("나이트,클럽", na=False)]
 
             # c1 데이터 저장 (카테고리 필터만 적용)
             if not c1.empty:
