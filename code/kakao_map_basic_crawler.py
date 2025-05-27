@@ -163,7 +163,9 @@ def extract_store_info(store_element):
             - f_star_point (float): 평균 별점(-1은 별점 없음을 의미)
             - review_count (int): 리뷰 수
             - str_address (str): 가게 주소
-            - hours (str): 영업 시간
+            - run_day (str): 영업 요일
+            - run_time_start (str): 영업 시작 시간
+            - run_time_end (str): 영업 종료 시간
 
     설명:
         - 각 정보 추출 시 요소가 없는 경우 None 또는 기본값(-1, 0 등) 반환.
@@ -252,9 +254,47 @@ def extract_store_info(store_element):
         hours_element = store_element.find_element(
             By.CSS_SELECTOR, "a[data-id='periodTxt']"
         )
-        store_info["hours"] = hours_element.text.strip()
+        hours_text = hours_element.text.strip()
+
+        # 휴게시간 정보 제거
+        if "·" in hours_text:
+            hours_text = hours_text.split("·")[0].strip()
+
+        # 요일 정보 파싱
+        day_pattern = (
+            r"(?:영업시간\s+)?(?:매일|(?:[월화수목금토일][,~][월화수목금토일]+))"
+        )
+        day_match = re.search(day_pattern, hours_text)
+
+        if day_match:
+            run_day = day_match.group(0)
+            if "영업시간" in run_day:
+                run_day = run_day.replace("영업시간", "").strip()
+            if run_day == "매일":
+                run_day = "월,화,수,목,금,토,일"
+        else:
+            run_day = "상세 정보 확인 요망"
+
+        # 시간 정보 파싱
+        time_pattern = r"(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})"
+        time_match = re.search(time_pattern, hours_text)
+
+        if time_match:
+            run_time_start = time_match.group(1)
+            run_time_end = time_match.group(2)
+        else:
+            run_time_start = "상세 정보 확인 요망"
+            run_time_end = "상세 정보 확인 요망"
+
+        # 새로운 칼럼에 정보 저장
+        store_info["run_day"] = run_day
+        store_info["run_time_start"] = run_time_start
+        store_info["run_time_end"] = run_time_end
+
     except NoSuchElementException:
-        store_info["hours"] = None
+        store_info["run_day"] = "상세 정보 확인 요망"
+        store_info["run_time_start"] = "상세 정보 확인 요망"
+        store_info["run_time_end"] = "상세 정보 확인 요망"
         logging.warning("영업시간을 찾을 수 없습니다.")
 
     return store_info
@@ -487,6 +527,22 @@ def process_location_category(args):
 
         # 중복 제거 (가게 이름 + 주소 기준)
         df = df.drop_duplicates(subset=["str_name", "str_address"])
+
+        # 칼럼 순서 지정
+        column_order = [
+            "str_name",
+            "str_address",
+            "str_location_keyword",
+            "str_main_category",
+            "str_sub_category",
+            "i_star_point_count",
+            "f_star_point",
+            "review_count",
+            "run_day",
+            "run_time_start",
+            "run_time_end",
+        ]
+        df = df[column_order]
 
         # 데이터 저장 경로 설정
         data_dir = "data/1_location_categories"
