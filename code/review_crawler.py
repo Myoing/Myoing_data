@@ -358,6 +358,8 @@ def process_store_reviews(store_record):
         store_record (pandas.Series): 가게 정보가 담긴 Series 객체.
             - str_name: 가게 이름
             - str_address: 가게 주소
+            - str_location_keyword: 검색 지역 키워드
+            - str_main_category: 메인 카테고리
             - i_review_count: 리뷰 수
 
     반환값:
@@ -373,6 +375,8 @@ def process_store_reviews(store_record):
     """
     str_name = store_record["str_name"]
     str_address = store_record["str_address"]
+    str_location_keyword = store_record["str_location_keyword"]
+    str_main_category = store_record["str_main_category"]
     collected_reviews = []
 
     try:
@@ -391,10 +395,14 @@ def process_store_reviews(store_record):
         for review in reviews:
             review["str_name"] = str_name
             review["str_address"] = str_address
+            review["str_location_keyword"] = str_location_keyword
+            review["str_main_category"] = str_main_category
             collected_reviews.append(
                 {
                     "str_name": review["str_name"],
                     "str_address": review["str_address"],
+                    "str_location_keyword": review["str_location_keyword"],
+                    "str_main_category": review["str_main_category"],
                     "reviewer_name": review.get("reviewer_name", ""),
                     "reviewer_score": review.get("reviewer_score", 0.0),
                     "review_date": review.get("review_date", ""),
@@ -407,6 +415,8 @@ def process_store_reviews(store_record):
             columns=[
                 "str_name",
                 "str_address",
+                "str_location_keyword",
+                "str_main_category",
                 "reviewer_name",
                 "reviewer_score",
                 "review_date",
