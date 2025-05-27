@@ -614,15 +614,24 @@ def main():
     combined_dir = "data/2_combined_location_categories"
     os.makedirs(combined_dir, exist_ok=True)
 
-    locations = ["강남역", "홍대입구역", "성수역", "이태원역", "압구정역"]
-    categories = ["식당", "카페", "술집", "노래방", "PC방", "클럽", "볼링장", "당구장"]
+    location_keyword = ["강남역", "홍대입구역", "성수역", "이태원역", "압구정역"]
+    main_category = [
+        "식당",
+        "카페",
+        "술집",
+        "노래방",
+        "PC방",
+        "클럽",
+        "볼링장",
+        "당구장",
+    ]
 
     # 드라이버 풀 초기화
     initialize_driver_pool()
 
     try:
         # 모든 지역과 카테고리 조합 생성
-        tasks = [(loc, cat) for loc in locations for cat in categories]
+        tasks = [(loc, cat) for loc in location_keyword for cat in main_category]
 
         # ThreadPoolExecutor를 사용하여 병렬 처리
         all_results = []

@@ -448,14 +448,16 @@ def main():
     결과를 CSV 파일로 저장하는 전체 프로세스를 실행함.
 
     처리 과정:
-    1. 'data/4_filtered_all/all_filtered_data.csv'에서 매장 데이터 로드
+    1. 'data/5_filtered_all_hour_club_reviewcount/all_filtered_data.csv'에서 매장 데이터 로드
     2. 멀티스레딩을 사용해 병렬로 각 매장의 리뷰 수집 (매장당 최대 50개 리뷰)
-    3. 수집된 리뷰 데이터를 'data/6_reviews_about_4' 폴더에 저장:
+    3. 수집된 리뷰 데이터를 'data/6_reviews_about_5' 폴더에 저장:
        - 'kakao_map_reviews_all.csv': 모든 리뷰 (빈 리뷰 포함)
        - 'kakao_map_reviews_filtered.csv': 리뷰 내용이 있는 리뷰만 필터링
     4. 리뷰 수집에 실패한 매장 목록을 'failed_stores.txt'에 저장
     """
-    filtered_data_path = "data/4_filtered_all/all_filtered_data.csv"
+    filtered_data_path = (
+        "data/5_filtered_all_hour_club_reviewcount/all_filtered_data.csv"
+    )
     if not os.path.exists(filtered_data_path):
         logging.error(f"가게 데이터 파일을 찾을 수 없습니다: {filtered_data_path}")
         return
@@ -512,7 +514,7 @@ def main():
 
     if review_dfs:
         all_reviews_df = pd.concat(review_dfs, ignore_index=True)
-        output_dir = "data/6_reviews_about_4"
+        output_dir = "data/6_reviews_about_5"
         os.makedirs(output_dir, exist_ok=True)
 
         # 전체 데이터를 저장하는 파일
