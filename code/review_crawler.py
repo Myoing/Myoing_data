@@ -274,8 +274,10 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                             .replace("\n", " ")
                             .strip()
                         )
+                        if not review_content:  # 빈 문자열인 경우 None으로 처리
+                            review_content = None
                     except Exception as ce:
-                        review_content = ""
+                        review_content = None
 
                     # 평점 추출: <span class="figure_star on"> 개수로 계산
                     try:
@@ -284,8 +286,10 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                             "div.review_detail div.info_grade span.starred_grade span.wrap_grade span.figure_star.on",
                         )
                         reviewer_score = float(len(star_elements))
+                        if reviewer_score == 0:  # 평점이 0인 경우 None으로 처리
+                            reviewer_score = None
                     except Exception:
-                        reviewer_score = 0.0
+                        reviewer_score = None
 
                     # 작성일 추출
                     try:
@@ -294,18 +298,22 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                             "div.review_detail div.info_grade span.txt_date",
                         )
                         review_date = date_elem.text.strip()
+                        if not review_date:  # 빈 문자열인 경우 None으로 처리
+                            review_date = None
                     except NoSuchElementException:
-                        review_date = ""
+                        review_date = None
 
-                    # 리뷰어 이름 추출: 구체적인 선택자 사용 (div.info_user > div.wrap_user > a.link_user > span.name_user)
+                    # 리뷰어 이름 추출
                     try:
                         reviewer_elem = container.find_element(
                             By.CSS_SELECTOR,
                             "div.info_user > div.wrap_user > a.link_user > span.name_user",
                         )
                         reviewer_name = reviewer_elem.text.strip()
+                        if not reviewer_name:  # 빈 문자열인 경우 None으로 처리
+                            reviewer_name = None
                     except NoSuchElementException:
-                        reviewer_name = ""
+                        reviewer_name = None
 
                     reviews.append(
                         {

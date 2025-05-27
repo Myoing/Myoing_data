@@ -476,7 +476,7 @@ def merge_and_fill_filtered_data():
 
     설명:
         - data/3_filtered_location_categories/ 폴더의 *_filtered.csv 파일들 로드.
-        - 결측값을 '-1'로 채우고 파일 덮어쓰기.
+        - 결측값을 None으로 처리하고 파일 덮어쓰기.
         - 모든 데이터를 통합하여 data/4_filtered_all/all_filtered_data.csv로 저장.
         - 디렉토리가 없는 경우 자동 생성.
     """
@@ -490,7 +490,7 @@ def merge_and_fill_filtered_data():
             continue
         path = os.path.join(dir3, fname)
         df = pd.read_csv(path, encoding="utf-8-sig")
-        df = df.fillna("-1")
+        df = df.replace("-1", None)  # "-1"을 None으로 변경
         df.to_csv(path, index=False, encoding="utf-8-sig")
         merged.append(df)
 
