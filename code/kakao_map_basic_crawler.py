@@ -308,13 +308,13 @@ def extract_store_info(store_element):
     return store_info
 
 
-def collect_all_stores(driver, max_pages=20, search_info=None):
+def collect_all_stores(driver, max_pages=40, search_info=None):
     """
     카카오맵 검색 결과에서 가게 정보를 페이지별로 수집하는 함수.
 
     입력값:
         driver (webdriver.Chrome): 사용할 Chrome 웹 드라이버 객체.
-        max_pages (int, 기본값=20): 수집할 최대 페이지 수.
+        max_pages (int, 기본값=40): 수집할 최대 페이지 수.
         search_info (tuple, 기본값=None): (location, category) 검색에 사용된 지역명과 카테고리명
 
     반환값:
@@ -323,8 +323,7 @@ def collect_all_stores(driver, max_pages=20, search_info=None):
     설명:
         - 최대 max_pages까지 페이지를 이동하며 가게 정보 수집.
         - 첫 페이지에서는 '장소 더보기' 버튼을 클릭하여 더 많은 결과 로드.
-        - 10페이지 이후에는 리뷰가 있는 가게만 수집(효율성 향상).
-        - 리뷰가 있는 가게가 50개에 도달하면 조기 종료(목표 달성).
+        - 리뷰가 있는 가게가 150개에 도달하면 조기 종료(목표 달성).
         - 페이지 이동 시 5페이지 단위로 '다음' 버튼, 그 외에는 페이지 번호 클릭.
     """
     all_stores = []
@@ -385,39 +384,14 @@ def collect_all_stores(driver, max_pages=20, search_info=None):
                     f"https://map.kakao.com/?q={location} {store_info['str_name']}"
                 )
 
-                # 10페이지 이후에는 리뷰가 있는 가게만 수집 (50개 미만일 때만)
-                if current_page > 10 and stores_with_reviews < 50:
-                    if store_info["i_review_count"] > 0:
-                        all_stores.append(store_info)
-                        stores_with_reviews += 1
-                        if stores_with_reviews >= 50:
-                            logging.info(
-                                f"[{current_search}] 리뷰가 있는 가게 50개 수집 완료"
-                            )
-                            return all_stores
-                else:
-                    all_stores.append(store_info)
-                    if store_info["i_review_count"] > 0:
-                        stores_with_reviews += 1
-
-            # 10페이지까지 수집 후 리뷰가 있는 가게가 50개 미만이면 계속 진행
-            if current_page == 10:
-                if stores_with_reviews >= 50:
-                    logging.info(
-                        f"[{current_search}] 10페이지까지 수집 완료. 리뷰가 있는 가게 {stores_with_reviews}개 (목표: 50개)"
-                    )
-                    logging.info(
-                        f"[{current_search}] 목표 달성! 다음 검색어로 넘어갑니다."
-                    )
-                    logging.info(f"[{current_search}] {'='*50}")
-                    return all_stores
-                else:
-                    logging.info(
-                        f"[{current_search}] 10페이지까지 수집 완료. 리뷰가 있는 가게 {stores_with_reviews}개 (목표: 50개)"
-                    )
-                    logging.info(
-                        f"[{current_search}] 11-20페이지에서 리뷰가 있는 가게만 추가 수집 시작"
-                    )
+                all_stores.append(store_info)
+                if store_info["i_review_count"] > 0:
+                    stores_with_reviews += 1
+                    if stores_with_reviews >= 150:
+                        logging.info(
+                            f"[{current_search}] 리뷰가 있는 가게 150개 수집 완료"
+                        )
+                        return all_stores
 
             # 다음 페이지로 이동
             if current_page < max_pages:
@@ -496,10 +470,10 @@ def collect_all_stores(driver, max_pages=20, search_info=None):
             )
             break
 
-    # 20페이지까지 수집 후에도 리뷰가 있는 가게가 50개 미만인 경우에만 무한 크롤링 방지 메시지 출력
-    if current_page == max_pages and stores_with_reviews < 50:
+    # 40페이지까지 수집 후에도 리뷰가 있는 가게가 150개 미만인 경우에만 무한 크롤링 방지 메시지 출력
+    if current_page == max_pages and stores_with_reviews < 150:
         logging.warning(
-            f"[{current_search}] {current_page}페이지까지 수집 완료했으나 리뷰가 있는 가게가 50개 미만입니다. (현재: {stores_with_reviews}개)"
+            f"[{current_search}] {current_page}페이지까지 수집 완료했으나 리뷰가 있는 가게가 150개 미만입니다. (현재: {stores_with_reviews}개)"
         )
         logging.warning(
             f"[{current_search}] 무한 크롤링 방지를 위해 다음 검색어로 넘어갑니다."
@@ -533,7 +507,7 @@ def process_location_category(args):
     try:
         logging.info(f"== {location} {category} 검색 시작 ==")
         search_info = search_places(driver, location, category)
-        stores = collect_all_stores(driver, max_pages=20, search_info=search_info)
+        stores = collect_all_stores(driver, max_pages=40, search_info=search_info)
         df = pd.DataFrame(stores)
 
         # 중복 제거 (가게 이름 + 주소 기준)
