@@ -157,12 +157,12 @@ def extract_store_info(store_element):
 
     반환값:
         dict: 다음 키를 포함하는 가게 정보 딕셔너리.
-            - name (str): 가게 이름
-            - category (str): 가게 카테고리
-            - score_count (int): 별점 평가 수
-            - score (float): 평균 별점(-1은 별점 없음을 의미)
+            - str_name (str): 가게 이름
+            - str_sub_category (str): 가게 카테고리
+            - i_star_point_count (int): 별점 평가 수
+            - f_star_point (float): 평균 별점(-1은 별점 없음을 의미)
             - review_count (int): 리뷰 수
-            - address (str): 가게 주소
+            - str_address (str): 가게 주소
             - hours (str): 영업 시간
 
     설명:
@@ -174,9 +174,9 @@ def extract_store_info(store_element):
     try:
         # 가게 이름
         name_element = store_element.find_element(By.CSS_SELECTOR, "a.link_name")
-        store_info["name"] = name_element.text.strip()
+        store_info["str_name"] = name_element.text.strip()
     except NoSuchElementException:
-        store_info["name"] = None
+        store_info["str_name"] = None
         logging.warning("가게 이름을 찾을 수 없습니다.")
 
     try:
@@ -184,9 +184,9 @@ def extract_store_info(store_element):
         category_element = store_element.find_element(
             By.CSS_SELECTOR, "span.subcategory"
         )
-        store_info["category"] = category_element.text.strip()
+        store_info["str_sub_category"] = category_element.text.strip()
     except NoSuchElementException:
-        store_info["category"] = None
+        store_info["str_sub_category"] = None
         logging.warning("카테고리를 찾을 수 없습니다.")
 
     try:
@@ -199,7 +199,7 @@ def extract_store_info(store_element):
         score_count_text = re.sub(r"[^0-9]", "", score_count_text)
         # 빈 문자열인 경우 0으로 처리
         score_count = int(score_count_text) if score_count_text else 0
-        store_info["score_count"] = score_count
+        store_info["i_star_point_count"] = score_count
 
         # 별점이 있는 경우에만 별점 정보 추출
         if score_count > 0:
@@ -207,16 +207,16 @@ def extract_store_info(store_element):
                 By.CSS_SELECTOR, "em[data-id='scoreNum']"
             )
             score_text = score_element.text.strip()
-            store_info["score"] = float(score_text)
+            store_info["f_star_point"] = float(score_text)
         else:
-            store_info["score"] = -1
+            store_info["f_star_point"] = -1
     except NoSuchElementException:
-        store_info["score_count"] = 0
-        store_info["score"] = -1
+        store_info["i_star_point_count"] = 0
+        store_info["f_star_point"] = -1
         logging.warning("별점 정보를 찾을 수 없습니다.")
     except (ValueError, TypeError) as e:
-        store_info["score_count"] = 0
-        store_info["score"] = -1
+        store_info["i_star_point_count"] = 0
+        store_info["f_star_point"] = -1
         logging.warning(f"별점 정보 처리 중 오류 발생: {e}")
 
     try:
@@ -242,9 +242,9 @@ def extract_store_info(store_element):
         address_element = store_element.find_element(
             By.CSS_SELECTOR, "p[data-id='address']"
         )
-        store_info["address"] = address_element.text.strip()
+        store_info["str_address"] = address_element.text.strip()
     except NoSuchElementException:
-        store_info["address"] = None
+        store_info["str_address"] = None
         logging.warning("주소를 찾을 수 없습니다.")
 
     try:
@@ -486,7 +486,7 @@ def process_location_category(args):
         df = pd.DataFrame(stores)
 
         # 중복 제거 (가게 이름 + 주소 기준)
-        df = df.drop_duplicates(subset=["name", "address"])
+        df = df.drop_duplicates(subset=["str_name", "str_address"])
 
         # 데이터 저장 경로 설정
         data_dir = "data/1_location_categories"
