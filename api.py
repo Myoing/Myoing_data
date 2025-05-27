@@ -35,6 +35,16 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# 디렉토리 경로 상수 정의
+DATA_DIRS = {
+    "basic": "data/1_location_categories",
+    "combined": "data/2_combined_location_categories",
+    "filtered": "data/3_filtered_location_categories_hour_club",
+    "all_filtered": "data/4_filtered_all_hour_club",
+    "review_filtered": "data/5_filtered_all_hour_club_reviewcount",
+    "reviews": "data/6_reviews_about_5",
+}
+
 # 공통으로 사용할 드라이버 풀 관련 변수
 driver_pool = Queue()
 MAX_DRIVERS = 4
@@ -46,8 +56,14 @@ tasks = {}
 
 # 모델 정의
 class CrawlingRequest(BaseModel):
-    locations: List[str] = ["강남역", "홍대입구역", "성수역", "압구정역", "이태원역"]
-    categories: List[str] = [
+    str_location_keywords: List[str] = [
+        "강남역",
+        "홍대입구역",
+        "성수역",
+        "압구정역",
+        "이태원역",
+    ]
+    str_main_categories: List[str] = [
         "식당",
         "카페",
         "술집",
@@ -137,10 +153,10 @@ async def run_basic_crawler(task_id: str, params: CrawlingRequest):
         basic_crawler.initialize_driver_pool = lambda: None
 
         # 크롤링 실행
-        locations = params.locations
-        categories = params.categories
+        str_location_keywords = params.str_location_keywords
+        str_main_categories = params.str_main_categories
 
-        total_tasks = len(locations) * len(categories)
+        total_tasks = len(str_location_keywords) * len(str_main_categories)
         completed_tasks = 0
 
         # 병렬 처리를 위한 후처리 함수
@@ -156,10 +172,11 @@ async def run_basic_crawler(task_id: str, params: CrawlingRequest):
 
         with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
             futures = []
-            for location in locations:
-                for category in categories:
+            for str_location_keyword in str_location_keywords:
+                for str_main_category in str_main_categories:
                     future = executor.submit(
-                        basic_crawler.process_location_category, (location, category)
+                        basic_crawler.process_location_category,
+                        (str_location_keyword, str_main_category),
                     )
                     future.add_done_callback(update_progress)
                     futures.append(future)
@@ -244,10 +261,10 @@ async def run_review_crawler(task_id: str, params: CrawlingRequest):
 
         # 결과 정보 설정
         data_stats = {
-            "basic_data": len(os.listdir("data/1_location_categories")),
-            "filtered_data": len(os.listdir("data/3_filtered_location_categories")),
+            "basic_data": len(os.listdir(DATA_DIRS["basic"])),
+            "filtered_data": len(os.listdir(DATA_DIRS["filtered"])),
             "review_data": os.path.exists(
-                "data/6_reviews_about_4/kakao_map_reviews_filtered.csv"
+                os.path.join(DATA_DIRS["reviews"], "kakao_map_reviews_filtered.csv")
             ),
         }
         tasks[task_id].result = data_stats
@@ -380,79 +397,77 @@ async def check_crawling_status(task_id: str):
     return tasks[task_id]
 
 
-@app.get("/myoing_data/list")
-async def list_data_files(
-    data_type: str = Query(
-        ...,
-        description="데이터 유형 (basic, filtered, all_filtered, reviews)",
-        regex="^(basic|filtered|all_filtered|reviews)$",
-    )
-):
-    """데이터 파일 목록 조회"""
+@app.get("/data/{data_type}")
+async def list_data_files(data_type: str):
+    """
+    지정된 데이터 타입의 파일 목록을 반환합니다.
+
+    매개변수:
+        data_type (str): 데이터 타입 ("basic", "filtered", "all_filtered", "reviews" 중 하나)
+
+    반환값:
+        dict: 파일 목록과 메시지를 포함하는 딕셔너리
+    """
+    if data_type not in DATA_DIRS:
+        return {
+            "error": f"잘못된 데이터 타입입니다. 가능한 값: {list(DATA_DIRS.keys())}"
+        }
+
+    directory = DATA_DIRS[data_type]
     try:
-        if data_type == "basic":
-            dir_path = "data/1_location_categories"
-        elif data_type == "filtered":
-            dir_path = "data/3_filtered_location_categories"
-        elif data_type == "all_filtered":
-            dir_path = "data/4_filtered_all"
-        elif data_type == "reviews":
-            dir_path = "data/6_reviews_about_4"
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="유효하지 않은 데이터 유형입니다.",
-            )
-
-        if not os.path.exists(dir_path):
-            return {"files": []}
-
-        files = [f for f in os.listdir(dir_path) if f.endswith(".csv")]
-        return {"files": files}
-
+        files = [f for f in os.listdir(directory) if f.endswith(".csv")]
+        return {
+            "message": f"{data_type} 데이터 파일 목록",
+            "files": files,
+            "count": len(files),
+        }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"데이터 목록 조회 중 오류 발생: {str(e)}",
-        )
+        return {"error": f"파일 목록 조회 중 오류 발생: {str(e)}"}
 
 
-@app.get("/myoing_data/file")
-async def get_data_file(
-    file_path: str = Query(
-        ...,
-        description="가져올 데이터 파일 경로 (예: 'data/1_location_categories/강남역_식당.csv')",
-    )
-):
-    """데이터 파일 내용 조회"""
+@app.get("/data/{data_type}/{filename}")
+async def get_data_file(data_type: str, filename: str):
+    """
+    지정된 데이터 파일의 내용을 반환합니다.
+
+    매개변수:
+        data_type (str): 데이터 타입 ("basic", "filtered", "all_filtered", "reviews" 중 하나)
+        filename (str): 파일명
+
+    반환값:
+        dict: 파일 내용과 메시지를 포함하는 딕셔너리
+    """
+    if data_type not in DATA_DIRS:
+        return {
+            "error": f"잘못된 데이터 타입입니다. 가능한 값: {list(DATA_DIRS.keys())}"
+        }
+
+    file_path = os.path.join(DATA_DIRS[data_type], filename)
     if not os.path.exists(file_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"파일을 찾을 수 없습니다: {file_path}",
-        )
+        return {"error": f"파일을 찾을 수 없습니다: {filename}"}
 
     try:
         import pandas as pd
 
-        df = pd.read_csv(file_path, encoding="utf-8-sig")
-        return {"data": df.to_dict(orient="records")}
+        df = pd.read_csv(file_path)
+        return {
+            "message": f"{data_type} 데이터 파일 내용",
+            "filename": filename,
+            "row_count": len(df),
+            "columns": df.columns.tolist(),
+            "data": df.head(10).to_dict(orient="records"),
+        }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"파일 읽기 중 오류 발생: {str(e)}",
-        )
+        return {"error": f"파일 읽기 중 오류 발생: {str(e)}"}
 
 
 # 서버 시작 시 필요한 디렉토리 생성
 @app.on_event("startup")
 async def startup_event():
     # 데이터 디렉토리 생성
-    os.makedirs("data/1_location_categories", exist_ok=True)
-    os.makedirs("data/2_combined_location_categories", exist_ok=True)
-    os.makedirs("data/3_filtered_location_categories", exist_ok=True)
-    os.makedirs("data/4_filtered_all", exist_ok=True)
-    os.makedirs("data/5_filtered_clubs", exist_ok=True)
-    os.makedirs("data/6_reviews_about_4", exist_ok=True)
+    for dir_path in DATA_DIRS.values():
+        os.makedirs(dir_path, exist_ok=True)
+        logging.info(f"디렉토리 생성/확인: {dir_path}")
 
     logging.info("API 서버가 시작되었습니다.")
 

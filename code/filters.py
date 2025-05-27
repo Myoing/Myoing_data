@@ -122,10 +122,10 @@ def merge_and_fill_filtered_data():
         df = pd.read_csv(path, encoding="utf-8-sig")
 
         # 파일명에서 카테고리 정보 추출
-        category = fname.split("_")[1].replace(".csv", "")
+        str_main_category = fname.split("_")[1].replace(".csv", "")
 
         # 클럽 카테고리 파일은 영업시간 필터링 없이 그대로 통합
-        if category != "클럽":
+        if str_main_category != "클럽":
             df = filter_by_opening_hours(df)
             logging.info(f"영업시간 필터링 적용: {fname}")
 
@@ -204,10 +204,10 @@ def process_and_save_filtered_data():
             df = pd.read_csv(input_path)
 
             # 파일명에서 카테고리 정보 추출
-            category = filename.split("_")[1].replace(".csv", "")
+            str_main_category = filename.split("_")[1].replace(".csv", "")
 
             # 클럽 카테고리인 경우 영업시간 필터링 건너뛰기
-            if category == "클럽":
+            if str_main_category == "클럽":
                 # 클럽 카테고리 필터링만 적용
                 df = filter_club_category(df)
                 logging.info(f"클럽 카테고리 필터링 적용: {filename}")

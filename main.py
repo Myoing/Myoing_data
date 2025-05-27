@@ -9,6 +9,7 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from queue import Queue
 from threading import Lock
+from datetime import datetime
 
 # 공통으로 사용할 드라이버 풀 관련 변수
 driver_pool = Queue()
@@ -23,9 +24,29 @@ import code.review_crawler as review_crawler
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("crawler.log"),
+    ],
 )
+
+# 디렉토리 경로 상수 정의
+DATA_DIRS = {
+    "basic": "data/1_location_categories",
+    "combined": "data/2_combined_location_categories",
+    "filtered": "data/3_filtered_location_categories_hour_club",
+    "all_filtered": "data/4_filtered_all_hour_club",
+    "review_filtered": "data/5_filtered_all_hour_club_reviewcount",
+    "reviews": "data/6_reviews_about_5",
+}
+
+
+def create_required_directories():
+    """필요한 모든 디렉토리 생성"""
+    for dir_path in DATA_DIRS.values():
+        os.makedirs(dir_path, exist_ok=True)
+        logging.info(f"디렉토리 생성/확인: {dir_path}")
 
 
 def setup_driver():
@@ -95,8 +116,14 @@ def main():
         basic_crawler.initialize_driver_pool = lambda: None
 
         # 크롤링 실행 - 기본 위치와 카테고리 설정
-        locations = ["강남역", "홍대입구역", "성수역", "압구정역", "이태원역"]
-        categories = [
+        str_location_keywords = [
+            "강남역",
+            "홍대입구역",
+            "성수역",
+            "압구정역",
+            "이태원역",
+        ]
+        str_main_categories = [
             "식당",
             "카페",
             "술집",
@@ -111,10 +138,11 @@ def main():
         with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
             # 위치 및 카테고리별 작업 제출
             futures = []
-            for location in locations:
-                for category in categories:
+            for str_location_keyword in str_location_keywords:
+                for str_main_category in str_main_categories:
                     future = executor.submit(
-                        basic_crawler.process_location_category, (location, category)
+                        basic_crawler.process_location_category,
+                        (str_location_keyword, str_main_category),
                     )
                     futures.append(future)
 

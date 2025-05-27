@@ -105,23 +105,19 @@ def return_driver(driver):
     driver_pool.put(driver)
 
 
-def search_places(driver, location, category):
+def search_places(driver, str_location_keyword, str_main_category):
     """
     카카오맵에서 특정 지역과 카테고리 조합으로 검색을 수행하는 함수.
 
     입력값:
         driver (webdriver.Chrome): 사용할 Chrome 웹 드라이버 객체.
-        location (str): 검색할 지역명(예: '강남역', '홍대입구역').
-        category (str): 검색할 카테고리명(예: '식당', '카페', '클럽').
+        str_location_keyword (str): 검색할 지역명(예: '강남역', '홍대입구역').
+        str_main_category (str): 검색할 카테고리명(예: '식당', '카페', '클럽').
 
     반환값:
-        tuple: (location, category) 검색에 사용된 지역명과 카테고리명
-
-    설명:
-        - 카카오맵 웹사이트 접속 후 검색창에 지역명과 카테고리를 입력하여 검색.
-        - 검색 버튼 클릭에 실패할 경우 Enter 키 입력을 통한 대체 검색 시도.
+        tuple: (str_location_keyword, str_main_category) 검색에 사용된 지역명과 카테고리명
     """
-    logging.info(f"'{location} {category}' 검색 중...")
+    logging.info(f"'{str_location_keyword} {str_main_category}' 검색 중...")
     driver.get("https://map.kakao.com/")
     time.sleep(2)  # 기본 페이지 로딩 대기
 
@@ -129,7 +125,7 @@ def search_places(driver, location, category):
         # 검색 입력창 및 검색 버튼 선택
         search_input = driver.find_element(By.ID, "search.keyword.query")
         search_input.clear()
-        search_input.send_keys(f"{location} {category}")
+        search_input.send_keys(f"{str_location_keyword} {str_main_category}")
         search_button = driver.find_element(By.ID, "search.keyword.submit")
         driver.execute_script("arguments[0].click();", search_button)
         time.sleep(2)  # 검색 결과 로딩 대기
@@ -138,14 +134,14 @@ def search_places(driver, location, category):
         try:
             search_input = driver.find_element(By.ID, "search.keyword.query")
             search_input.clear()
-            search_input.send_keys(f"{location} {category}")
+            search_input.send_keys(f"{str_location_keyword} {str_main_category}")
             search_input.send_keys(Keys.RETURN)
             time.sleep(2)
         except Exception as e2:
             logging.error(f"대체 검색 방법도 실패: {e2}")
             raise
 
-    return location, category
+    return str_location_keyword, str_main_category
 
 
 def extract_store_info(store_element):
@@ -315,7 +311,7 @@ def collect_all_stores(driver, max_pages=50, search_info=None):
     입력값:
         driver (webdriver.Chrome): 사용할 Chrome 웹 드라이버 객체.
         max_pages (int, 기본값=50): 수집할 최대 페이지 수.
-        search_info (tuple, 기본값=None): (location, category) 검색에 사용된 지역명과 카테고리명
+        search_info (tuple, 기본값=None): (str_location_keyword, str_main_category) 검색에 사용된 지역명과 카테고리명
 
     반환값:
         list: 각 가게 정보를 담은 딕셔너리 객체들의 리스트.
@@ -339,7 +335,7 @@ def collect_all_stores(driver, max_pages=50, search_info=None):
         current_search = "알 수 없음"
 
     # 검색 정보 설정
-    location, category = search_info if search_info else ("", "")
+    str_location_keyword, str_main_category = search_info if search_info else ("", "")
 
     while current_page <= max_pages:
         logging.info(
@@ -379,10 +375,10 @@ def collect_all_stores(driver, max_pages=50, search_info=None):
                 store_info = extract_store_info(store_element)
 
                 # 검색 키워드 정보 추가
-                store_info["str_location_keyword"] = location
-                store_info["str_main_category"] = category
+                store_info["str_location_keyword"] = str_location_keyword
+                store_info["str_main_category"] = str_main_category
                 store_info["str_url"] = (
-                    f"https://map.kakao.com/?q={location} {store_info['str_name']}"
+                    f"https://map.kakao.com/?q={str_location_keyword} {store_info['str_name']}"
                 )
 
                 # 중복 체크 (가게 이름 + 주소로 유니크한 식별)
@@ -493,9 +489,9 @@ def process_location_category(args):
     지역과 카테고리 조합에 대한 가게 데이터 수집 및 저장 처리 함수.
 
     입력값:
-        args (tuple): (location, category) 형식의 튜플.
-            - location (str): 검색할 지역명(예: '강남역').
-            - category (str): 검색할 카테고리명(예: '식당').
+        args (tuple): (str_location_keyword, str_main_category) 형식의 튜플.
+            - str_location_keyword (str): 검색할 지역명(예: '강남역').
+            - str_main_category (str): 검색할 카테고리명(예: '식당').
 
     반환값:
         pandas.DataFrame: 수집된 가게 정보가 담긴 데이터프레임. 오류 발생 시 빈 데이터프레임 반환.
@@ -507,11 +503,11 @@ def process_location_category(args):
         - 리뷰가 있는 가게가 목표치(50개)보다 적을 경우 경고 메시지 출력.
         - 작업 완료 후 드라이버를 풀에 반환.
     """
-    location, category = args
+    str_location_keyword, str_main_category = args
     driver = get_driver()
     try:
-        logging.info(f"== {location} {category} 검색 시작 ==")
-        search_info = search_places(driver, location, category)
+        logging.info(f"== {str_location_keyword} {str_main_category} 검색 시작 ==")
+        search_info = search_places(driver, str_location_keyword, str_main_category)
         stores = collect_all_stores(driver, max_pages=50, search_info=search_info)
         df = pd.DataFrame(stores)
 
@@ -541,7 +537,9 @@ def process_location_category(args):
         os.makedirs(data_dir, exist_ok=True)
 
         # CSV 파일 저장
-        csv_filename = os.path.join(data_dir, f"{location}_{category}.csv")
+        csv_filename = os.path.join(
+            data_dir, f"{str_location_keyword}_{str_main_category}.csv"
+        )
         df.to_csv(csv_filename, index=False, encoding="utf-8-sig")
 
         # 리뷰가 있는 가게 수 계산
@@ -549,18 +547,22 @@ def process_location_category(args):
 
         if stores_with_reviews < 50:
             logging.warning(f"\n{'='*50}")
-            logging.warning(f"데이터 부족 알림: {location} {category}")
+            logging.warning(
+                f"데이터 부족 알림: {str_location_keyword} {str_main_category}"
+            )
             logging.warning(f"- 전체 수집된 가게: {len(df)}개")
             logging.warning(f"- 리뷰가 있는 가게: {stores_with_reviews}개")
             logging.warning(f"- 목표 대비 달성률: {(stores_with_reviews/50)*100:.1f}%")
             logging.warning(f"{'='*50}\n")
         else:
             logging.info(
-                f"{location} {category} 데이터 수집 완료: {len(df)}개 가게 (저장 파일: {csv_filename})"
+                f"{str_location_keyword} {str_main_category} 데이터 수집 완료: {len(df)}개 가게 (저장 파일: {csv_filename})"
             )
         return df
     except Exception as e:
-        logging.error(f"{location} {category} 처리 중 오류 발생: {e}")
+        logging.error(
+            f"{str_location_keyword} {str_main_category} 처리 중 오류 발생: {e}"
+        )
         return pd.DataFrame()
     finally:
         return_driver(driver)
@@ -597,8 +599,8 @@ def main():
     os.makedirs(combined_dir, exist_ok=True)
 
     # 지역 및 카테고리 설정
-    location_keyword = ["강남역", "홍대입구역", "성수역", "이태원역", "압구정역"]
-    main_category = [
+    location_keywords = ["강남역", "홍대입구역", "성수역", "이태원역", "압구정역"]
+    main_categories = [
         "식당",
         "카페",
         "술집",
@@ -614,7 +616,7 @@ def main():
 
     try:
         # 모든 지역과 카테고리 조합 생성
-        tasks = [(loc, cat) for loc in location_keyword for cat in main_category]
+        tasks = [(loc, cat) for loc in location_keywords for cat in main_categories]
         total_tasks = len(tasks)
         completed_tasks = 0
 

@@ -94,7 +94,7 @@ def return_driver(driver):
             driver_pool.put(setup_driver())
 
 
-def search_store_detail(driver, store_name):
+def search_store_detail(driver, str_name):
     """
     카카오맵에서 매장 검색 및 상세 페이지 접근 함수
 
@@ -103,19 +103,19 @@ def search_store_detail(driver, store_name):
 
     매개변수:
         driver (webdriver.Chrome): 사용할 웹드라이버 인스턴스
-        store_name (str): 검색할 매장명
+        str_name (str): 검색할 매장명
 
     반환값:
         bool: 상세 페이지 접근 성공 여부 (True: 성공, False: 실패)
     """
-    logging.info(f"'{store_name}' 상세정보 검색 시작...")
+    logging.info(f"'{str_name}' 상세정보 검색 시작...")
     driver.get("https://map.kakao.com/")
     time.sleep(2)
 
     try:
         search_input = driver.find_element(By.ID, "search.keyword.query")
         search_input.clear()
-        search_input.send_keys(store_name)
+        search_input.send_keys(str_name)
         search_button = driver.find_element(By.ID, "search.keyword.submit")
         driver.execute_script("arguments[0].click();", search_button)
         time.sleep(2)
@@ -132,7 +132,7 @@ def search_store_detail(driver, store_name):
                 result_name = (
                     link_name_elem.get_attribute("title") or link_name_elem.text
                 ).strip()
-                if result_name == store_name:
+                if result_name == str_name:
                     logging.info(f"일치하는 가게 발견: {result_name}")
                     detail_btn = result.find_element(
                         By.CSS_SELECTOR, "a[data-id='moreview']"
@@ -166,7 +166,7 @@ def search_store_detail(driver, store_name):
                                 link_name_elem.get_attribute("title")
                                 or link_name_elem.text
                             ).strip()
-                            if result_name == store_name:
+                            if result_name == str_name:
                                 logging.info(f"일치하는 가게 발견: {result_name}")
                                 detail_btn = result.find_element(
                                     By.CSS_SELECTOR, "a[data-id='moreview']"
@@ -187,7 +187,7 @@ def search_store_detail(driver, store_name):
                 logging.info("장소 더보기 버튼이 존재하지 않음")
         if not matched:
             logging.warning(
-                f"검색 결과에서 '{store_name}'과(와) 일치하는 가게를 찾지 못함"
+                f"검색 결과에서 '{str_name}'과(와) 일치하는 가게를 찾지 못함"
             )
             return False
 
@@ -205,7 +205,7 @@ def search_store_detail(driver, store_name):
         return False
 
 
-def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=2.0):
+def scroll_and_collect_reviews(driver, str_name, target_count=50, scroll_wait=2.0):
     """
     카카오맵 매장 상세 페이지에서 리뷰 스크롤링 및 수집 함수
 
@@ -214,7 +214,7 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
 
     매개변수:
         driver (webdriver.Chrome): 사용할 웹드라이버 인스턴스
-        store_name (str): 매장명 (로깅용)
+        str_name (str): 매장명 (로깅용)
         target_count (int): 수집할 목표 리뷰 개수 (기본값: 50)
         scroll_wait (float): 스크롤 간 대기 시간(초) (기본값: 2.0)
 
@@ -238,13 +238,13 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                 By.CSS_SELECTOR, "div.inner_review"
             )
             if not review_containers:
-                logging.warning(f"[{store_name}] 리뷰 컨테이너를 찾을 수 없습니다.")
+                logging.warning(f"[{str_name}] 리뷰 컨테이너를 찾을 수 없습니다.")
                 break
 
             if len(review_containers) == last_count:
                 scroll_attempt += 1
                 logging.info(
-                    f"[{store_name}] 새로운 리뷰 로드 시도 {scroll_attempt}/{max_scroll_attempts}"
+                    f"[{str_name}] 새로운 리뷰 로드 시도 {scroll_attempt}/{max_scroll_attempts}"
                 )
             else:
                 scroll_attempt = 0
@@ -324,12 +324,12 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                         }
                     )
                     logging.info(
-                        f"[{store_name}] 리뷰 수집: {len(reviews)}/{target_count}"
+                        f"[{str_name}] 리뷰 수집: {len(reviews)}/{target_count}"
                     )
                     if len(reviews) >= target_count:
                         break
                 except Exception as inner_e:
-                    logging.warning(f"[{store_name}] 리뷰 정보 추출 중 오류: {inner_e}")
+                    logging.warning(f"[{str_name}] 리뷰 정보 추출 중 오류: {inner_e}")
                     continue
 
             if len(reviews) >= target_count:
@@ -340,12 +340,12 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
             )
             time.sleep(scroll_wait)
         except Exception as e:
-            logging.error(f"[{store_name}] 리뷰 수집 중 오류: {e}")
+            logging.error(f"[{str_name}] 리뷰 수집 중 오류: {e}")
             break
 
     if len(reviews) < target_count:
         logging.warning(
-            f"[{store_name}] 목표 리뷰 수({target_count}개)에 도달하지 못했습니다. (수집된 리뷰: {len(reviews)}개)"
+            f"[{str_name}] 목표 리뷰 수({target_count}개)에 도달하지 못했습니다. (수집된 리뷰: {len(reviews)}개)"
         )
     return reviews
 
