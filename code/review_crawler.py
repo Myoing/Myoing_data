@@ -458,16 +458,17 @@ def main():
     결과를 CSV 파일로 저장하는 전체 프로세스를 실행함.
 
     처리 과정:
-    1. 'data/5_filtered_all_hour_club_reviewcount/all_filtered_data.csv'에서 매장 데이터 로드
+    1. 'data/5_filtered_all_hour_club_reviewcount/5_filtered_all_hour_club_reviewcount_data.csv'에서 매장 데이터 로드
     2. 멀티스레딩을 사용해 병렬로 각 매장의 리뷰 수집 (매장당 최대 50개 리뷰)
     3. 수집된 리뷰 데이터를 'data/6_reviews_about_5' 폴더에 저장:
        - 'kakao_map_reviews_all.csv': 모든 리뷰 (빈 리뷰 포함)
        - 'kakao_map_reviews_filtered.csv': 리뷰 내용이 있는 리뷰만 필터링
     4. 리뷰 수집에 실패한 매장 목록을 'failed_stores.txt'에 저장
     """
-    filtered_data_path = (
-        "data/5_filtered_all_hour_club_reviewcount/all_filtered_data.csv"
-    )
+    start_time = time.time()
+    logging.info("리뷰 크롤링 시작")
+
+    filtered_data_path = "data/5_filtered_all_hour_club_reviewcount/5_filtered_all_hour_club_reviewcount_data.csv"
     if not os.path.exists(filtered_data_path):
         logging.error(f"가게 데이터 파일을 찾을 수 없습니다: {filtered_data_path}")
         return
@@ -475,6 +476,7 @@ def main():
     # 전체 데이터를 대상으로 실행
     all_filtered_data = pd.read_csv(filtered_data_path)
     stores_data = all_filtered_data
+    total_stores = len(stores_data)
 
     review_dfs = []
     failed_stores = []
@@ -564,6 +566,20 @@ def main():
     while not driver_pool.empty():
         driver = driver_pool.get()
         driver.quit()
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    hours = int(execution_time // 3600)
+    minutes = int((execution_time % 3600) // 60)
+    seconds = int(execution_time % 60)
+
+    logging.info(f"리뷰 크롤링 완료")
+    logging.info(f"총 실행 시간: {hours}시간 {minutes}분 {seconds}초")
+    logging.info(f"총 매장 수: {total_stores}개")
+    logging.info(f"성공한 매장 수: {len(review_dfs)}개")
+    logging.info(f"실패한 매장 수: {len(failed_stores)}개")
+    logging.info(f"평균 처리 시간: {execution_time/total_stores:.2f}초/매장")
+    logging.info(f"총 수집된 리뷰 수: {len(all_reviews_df) if review_dfs else 0}개")
 
 
 if __name__ == "__main__":

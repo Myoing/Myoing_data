@@ -273,7 +273,7 @@ def extract_store_info(store_element):
             if run_day == "매일":
                 run_day = "월,화,수,목,금,토,일"
         else:
-            run_day = "상세 정보 확인 요망"
+            run_day = None
 
         # 시간 정보 파싱
         time_pattern = r"(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})"
@@ -283,8 +283,8 @@ def extract_store_info(store_element):
             run_time_start = time_match.group(1)
             run_time_end = time_match.group(2)
         else:
-            run_time_start = "상세 정보 확인 요망"
-            run_time_end = "상세 정보 확인 요망"
+            run_time_start = None
+            run_time_end = None
 
         # 새로운 칼럼에 정보 저장
         store_info["run_day"] = run_day
@@ -292,9 +292,9 @@ def extract_store_info(store_element):
         store_info["run_time_end"] = run_time_end
 
     except NoSuchElementException:
-        store_info["run_day"] = "상세 정보 확인 요망"
-        store_info["run_time_start"] = "상세 정보 확인 요망"
-        store_info["run_time_end"] = "상세 정보 확인 요망"
+        store_info["run_day"] = None
+        store_info["run_time_start"] = None
+        store_info["run_time_end"] = None
         logging.warning("영업시간을 찾을 수 없습니다.")
 
     try:
@@ -308,13 +308,13 @@ def extract_store_info(store_element):
     return store_info
 
 
-def collect_all_stores(driver, max_pages=40, search_info=None):
+def collect_all_stores(driver, max_pages=50, search_info=None):
     """
     카카오맵 검색 결과에서 가게 정보를 페이지별로 수집하는 함수.
 
     입력값:
         driver (webdriver.Chrome): 사용할 Chrome 웹 드라이버 객체.
-        max_pages (int, 기본값=40): 수집할 최대 페이지 수.
+        max_pages (int, 기본값=50): 수집할 최대 페이지 수.
         search_info (tuple, 기본값=None): (location, category) 검색에 사용된 지역명과 카테고리명
 
     반환값:
@@ -323,12 +323,13 @@ def collect_all_stores(driver, max_pages=40, search_info=None):
     설명:
         - 최대 max_pages까지 페이지를 이동하며 가게 정보 수집.
         - 첫 페이지에서는 '장소 더보기' 버튼을 클릭하여 더 많은 결과 로드.
-        - 리뷰가 있는 가게가 150개에 도달하면 조기 종료(목표 달성).
+        - 리뷰가 있는 가게가 500개에 도달하면 조기 종료(목표 달성).
         - 페이지 이동 시 5페이지 단위로 '다음' 버튼, 그 외에는 페이지 번호 클릭.
     """
     all_stores = []
     current_page = 1
     stores_with_reviews = 0
+    unique_stores = set()  # 중복 제거를 위한 set
 
     # 현재 검색어 가져오기
     try:
@@ -342,7 +343,7 @@ def collect_all_stores(driver, max_pages=40, search_info=None):
 
     while current_page <= max_pages:
         logging.info(
-            f"[{current_search}] 페이지 {current_page} 수집 중... (현재 리뷰 있는 가게: {stores_with_reviews}개)"
+            f"[{current_search}] 페이지 {current_page} 수집 중... (현재 리뷰 있는 가게: {stores_with_reviews}개, 현재 수집된 가게: {len(all_stores)}개)"
         )
         time.sleep(2)
 
@@ -384,14 +385,18 @@ def collect_all_stores(driver, max_pages=40, search_info=None):
                     f"https://map.kakao.com/?q={location} {store_info['str_name']}"
                 )
 
-                all_stores.append(store_info)
-                if store_info["i_review_count"] > 0:
-                    stores_with_reviews += 1
-                    if stores_with_reviews >= 150:
-                        logging.info(
-                            f"[{current_search}] 리뷰가 있는 가게 150개 수집 완료"
-                        )
-                        return all_stores
+                # 중복 체크 (가게 이름 + 주소로 유니크한 식별)
+                store_key = f"{store_info['str_name']}_{store_info['str_address']}"
+                if store_key not in unique_stores:
+                    unique_stores.add(store_key)
+                    all_stores.append(store_info)
+                    if store_info["i_review_count"] > 0:
+                        stores_with_reviews += 1
+                        if stores_with_reviews >= 500:
+                            logging.info(
+                                f"[{current_search}] 리뷰가 있는 가게 500개 수집 완료"
+                            )
+                            return all_stores
 
             # 다음 페이지로 이동
             if current_page < max_pages:
@@ -470,10 +475,10 @@ def collect_all_stores(driver, max_pages=40, search_info=None):
             )
             break
 
-    # 40페이지까지 수집 후에도 리뷰가 있는 가게가 150개 미만인 경우에만 무한 크롤링 방지 메시지 출력
-    if current_page == max_pages and stores_with_reviews < 150:
+    # 50페이지까지 수집 후에도 리뷰가 있는 가게가 500개 미만인 경우에만 무한 크롤링 방지 메시지 출력
+    if current_page == max_pages and stores_with_reviews < 500:
         logging.warning(
-            f"[{current_search}] {current_page}페이지까지 수집 완료했으나 리뷰가 있는 가게가 150개 미만입니다. (현재: {stores_with_reviews}개)"
+            f"[{current_search}] {current_page}페이지까지 수집 완료했으나 리뷰가 있는 가게가 500개 미만입니다. (현재: {stores_with_reviews}개)"
         )
         logging.warning(
             f"[{current_search}] 무한 크롤링 방지를 위해 다음 검색어로 넘어갑니다."
@@ -507,7 +512,7 @@ def process_location_category(args):
     try:
         logging.info(f"== {location} {category} 검색 시작 ==")
         search_info = search_places(driver, location, category)
-        stores = collect_all_stores(driver, max_pages=40, search_info=search_info)
+        stores = collect_all_stores(driver, max_pages=50, search_info=search_info)
         df = pd.DataFrame(stores)
 
         # 중복 제거 (가게 이름 + 주소 기준)
@@ -584,10 +589,14 @@ def main():
           5. 결과 통합 및 저장
           6. 드라이버 정리
     """
+    start_time = time.time()
+    logging.info("크롤링 시작")
+
     # combined_dir 디렉토리 생성
     combined_dir = "data/2_combined_location_categories"
     os.makedirs(combined_dir, exist_ok=True)
 
+    # 지역 및 카테고리 설정
     location_keyword = ["강남역", "홍대입구역", "성수역", "이태원역", "압구정역"]
     main_category = [
         "식당",
@@ -606,6 +615,8 @@ def main():
     try:
         # 모든 지역과 카테고리 조합 생성
         tasks = [(loc, cat) for loc in location_keyword for cat in main_category]
+        total_tasks = len(tasks)
+        completed_tasks = 0
 
         # ThreadPoolExecutor를 사용하여 병렬 처리
         all_results = []
@@ -613,6 +624,7 @@ def main():
             results = list(executor.map(process_location_category, tasks))
             # 빈 DataFrame 필터링
             all_results = [df for df in results if not df.empty and len(df.columns) > 0]
+            completed_tasks = len(all_results)
 
         # 모든 데이터를 하나의 파일로 저장
         if all_results:
@@ -626,6 +638,19 @@ def main():
         while not driver_pool.empty():
             driver = driver_pool.get()
             driver.quit()
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    hours = int(execution_time // 3600)
+    minutes = int((execution_time % 3600) // 60)
+    seconds = int(execution_time % 60)
+
+    logging.info(f"크롤링 완료")
+    logging.info(f"총 실행 시간: {hours}시간 {minutes}분 {seconds}초")
+    logging.info(f"총 작업 수: {total_tasks}개")
+    logging.info(f"성공한 작업 수: {completed_tasks}개")
+    logging.info(f"실패한 작업 수: {total_tasks - completed_tasks}개")
+    logging.info(f"평균 처리 시간: {execution_time/total_tasks:.2f}초/작업")
 
 
 if __name__ == "__main__":
