@@ -344,23 +344,27 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
 
 def process_store_reviews(store_record):
     """
-    단일 매장의 리뷰 수집 및 처리 함수
+    가게 리뷰 수집 및 처리 함수.
 
-    매장 정보를 바탕으로 해당 매장의 리뷰를 수집하고 처리하여 데이터프레임으로 변환함.
-
-    매개변수:
-        store_record (pd.Series): 매장 정보를 담은 DataFrame의 행
-                                 필수 필드: 'str_name' (매장명)
-                                 선택 필드: 'str_address' (매장 주소)
+    입력값:
+        store_record (pandas.Series): 가게 정보가 담긴 Series 객체.
+            - str_name: 가게 이름
+            - str_address: 가게 주소
+            - i_review_count: 리뷰 수
 
     반환값:
-        tuple: (리뷰 데이터프레임, 성공 여부)
-            - pd.DataFrame: 수집된 리뷰 데이터프레임 (성공 시)
-            - bool: 수집 성공 여부 (True: 성공, False: 실패)
+        tuple: (pandas.DataFrame, bool)
+            - DataFrame: 수집된 리뷰 정보가 담긴 데이터프레임
+            - bool: 수집 성공 여부
+
+    설명:
+        - 가게 상세 페이지로 이동하여 리뷰 정보 수집.
+        - 리뷰 스크롤링을 통해 지정된 개수만큼 리뷰 수집.
+        - 수집된 리뷰에 가게 정보 추가.
+        - 수집 실패 시 빈 데이터프레임과 False 반환.
     """
     store_name = store_record["str_name"]
-    store_address = store_record.get("str_address", "")
-    driver = None
+    store_address = store_record["str_address"]
     collected_reviews = []
 
     try:

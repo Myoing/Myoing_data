@@ -161,7 +161,7 @@ def extract_store_info(store_element):
             - str_sub_category (str): 가게 카테고리
             - i_star_point_count (int): 별점 평가 수
             - f_star_point (float): 평균 별점(-1은 별점 없음을 의미)
-            - review_count (int): 리뷰 수
+            - i_review_count (int): 리뷰 수
             - str_address (str): 가게 주소
             - run_day (str): 영업 요일
             - run_time_start (str): 영업 시작 시간
@@ -231,12 +231,12 @@ def extract_store_info(store_element):
         review_count_text = re.sub(r"[^0-9]", "", review_count_text)
         # 빈 문자열인 경우 0으로 처리
         review_count = int(review_count_text) if review_count_text else 0
-        store_info["review_count"] = review_count
+        store_info["i_review_count"] = review_count
     except NoSuchElementException:
-        store_info["review_count"] = 0
+        store_info["i_review_count"] = 0
         logging.warning("리뷰 갯수 정보를 찾을 수 없습니다.")
     except (ValueError, TypeError) as e:
-        store_info["review_count"] = 0
+        store_info["i_review_count"] = 0
         logging.warning(f"리뷰 갯수 정보 처리 중 오류 발생: {e}")
 
     try:
@@ -296,6 +296,14 @@ def extract_store_info(store_element):
         store_info["run_time_start"] = "상세 정보 확인 요망"
         store_info["run_time_end"] = "상세 정보 확인 요망"
         logging.warning("영업시간을 찾을 수 없습니다.")
+
+    try:
+        # 전화번호
+        phone_element = store_element.find_element(By.CSS_SELECTOR, "span.phone")
+        store_info["str_telephone"] = phone_element.text.strip()
+    except NoSuchElementException:
+        store_info["str_telephone"] = -1
+        logging.warning("전화번호를 찾을 수 없습니다.")
 
     return store_info
 
@@ -373,10 +381,13 @@ def collect_all_stores(driver, max_pages=20, search_info=None):
                 # 검색 키워드 정보 추가
                 store_info["str_location_keyword"] = location
                 store_info["str_main_category"] = category
+                store_info["str_url"] = (
+                    f"https://map.kakao.com/?q={location} {store_info['str_name']}"
+                )
 
                 # 10페이지 이후에는 리뷰가 있는 가게만 수집 (50개 미만일 때만)
                 if current_page > 10 and stores_with_reviews < 50:
-                    if store_info["review_count"] > 0:
+                    if store_info["i_review_count"] > 0:
                         all_stores.append(store_info)
                         stores_with_reviews += 1
                         if stores_with_reviews >= 50:
@@ -386,7 +397,7 @@ def collect_all_stores(driver, max_pages=20, search_info=None):
                             return all_stores
                 else:
                     all_stores.append(store_info)
-                    if store_info["review_count"] > 0:
+                    if store_info["i_review_count"] > 0:
                         stores_with_reviews += 1
 
             # 10페이지까지 수집 후 리뷰가 있는 가게가 50개 미만이면 계속 진행
@@ -537,10 +548,12 @@ def process_location_category(args):
             "str_sub_category",
             "i_star_point_count",
             "f_star_point",
-            "review_count",
+            "i_review_count",
             "run_day",
             "run_time_start",
             "run_time_end",
+            "str_url",
+            "str_telephone",
         ]
         df = df[column_order]
 
@@ -553,7 +566,7 @@ def process_location_category(args):
         df.to_csv(csv_filename, index=False, encoding="utf-8-sig")
 
         # 리뷰가 있는 가게 수 계산
-        stores_with_reviews = len(df[df["review_count"] > 0])
+        stores_with_reviews = len(df[df["i_review_count"] > 0])
 
         if stores_with_reviews < 50:
             logging.warning(f"\n{'='*50}")

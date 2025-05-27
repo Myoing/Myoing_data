@@ -252,28 +252,30 @@ def filter_by_opening_hours(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5. 리뷰 수 필터 (>0)
+# 5. 리뷰 수 필터링 (0보다 큰 가게만)
 def filter_by_reviews(df: pd.DataFrame) -> pd.DataFrame:
     """
     리뷰 수가 0보다 큰 가게만 필터링하는 함수.
 
     입력값:
-        df (pandas.DataFrame): 필터링할 데이터프레임(review_count 컬럼 포함).
+        df (pandas.DataFrame): 필터링할 데이터프레임(i_review_count 컬럼 포함).
 
     반환값:
         pandas.DataFrame: 리뷰 수가 0보다 큰 행만 포함된 데이터프레임.
 
     설명:
-        - 'review_count' 컬럼이 없는 경우 경고 로그 출력 후 원본 반환.
+        - 'i_review_count' 컬럼이 없는 경우 경고 로그 출력 후 원본 반환.
         - 리뷰 수가 0보다 큰 행만 선택.
         - 모든 행의 리뷰 수가 0인 경우 경고 로그 출력 후 원본 반환.
     """
-    if "review_count" not in df.columns:
-        logging.warning("⚠️ 'review_count' 컬럼이 없습니다. 스킵합니다.")
+    if "i_review_count" not in df.columns:
+        logging.warning("⚠️ 'i_review_count' 컬럼이 없습니다. 필터링을 건너뜁니다.")
         return df
-    pos = df[df["review_count"] > 0]
+    pos = df[df["i_review_count"] > 0]
     if pos.empty:
-        logging.warning("⚠️ 리뷰수가 0인 모든 행! 원본 반환합니다.")
+        logging.warning(
+            "⚠️ 모든 가게의 리뷰 수가 0입니다. 필터링을 건너뛰고 원본 데이터를 반환합니다."
+        )
         return df
     return pos
 
@@ -578,18 +580,12 @@ def process_all_locations():
                 continue
 
             f3 = f3.reset_index(drop=True)
-            # 검색 URL 은 따로 컬럼에 남겨두고,
-            # crawl 에는 오로지 '가게명'만 전달합니다.
-            f3["search_url"] = f3["name"].apply(
-                lambda x: f"https://map.kakao.com/?q={loc} {x}"
-            )
 
             urls = [""] * len(f3)
-            phones = [""] * len(f3)
 
             with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
                 future_to_idx = {
-                    executor.submit(crawl, idx, row["name"]): idx
+                    executor.submit(crawl, idx, row["str_name"]): idx
                     for idx, row in f3.iterrows()
                 }
                 for future in as_completed(future_to_idx):
@@ -597,13 +593,11 @@ def process_all_locations():
                     try:
                         _, du, ph = future.result()
                         urls[idx] = du
-                        phones[idx] = ph
                         logging.info(f"[{loc}-{cat}] ({idx+1}/{len(f3)}) 크롤링 완료")
                     except Exception as e:
                         logging.error(f"[{loc}-{cat}] 인덱스 {idx} 크롤링 오류: {e}")
 
             f3["detail_url"] = urls
-            f3["phone"] = phones
 
             save_path = os.path.join(out_dir, f"{loc}_{cat}_filtered.csv")
             f3.fillna("-1").to_csv(save_path, index=False, encoding="utf-8-sig")
@@ -620,19 +614,12 @@ def process_all_locations():
                 # region 필드 추가
                 c1["region"] = loc
 
-                # 검색 URL 추가
-                c1["search_url"] = c1["name"].apply(
-                    lambda x: f"https://map.kakao.com/?q={loc} {x}"
-                )
-
-                # detail_url과 phone 정보 크롤링 준비
                 urls = [""] * len(c1)
-                phones = [""] * len(c1)
 
                 # 병렬 크롤링 실행
                 with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
                     future_to_idx = {
-                        executor.submit(crawl, idx, row["name"]): idx
+                        executor.submit(crawl, idx, row["str_name"]): idx
                         for idx, row in c1.iterrows()
                     }
                     for future in as_completed(future_to_idx):
@@ -640,13 +627,11 @@ def process_all_locations():
                         try:
                             _, du, ph = future.result()
                             urls[idx] = du
-                            phones[idx] = ph
                         except:
                             pass
 
                 # 필드 추가
                 c1["detail_url"] = urls
-                c1["phone"] = phones
 
                 # 저장
                 c1_path = os.path.join(club_dir, f"{loc}_클럽_cat_only.csv")
@@ -660,14 +645,13 @@ def process_all_locations():
             c4 = filter_by_reviews(c3)
             if not c4.empty:
                 c4 = c4.reset_index(drop=True)
-                c4["search_url"] = c4["name"].apply(lambda x: f"{loc} {x}")
+                c4["search_url"] = c4["str_name"].apply(lambda x: f"{loc} {x}")
 
                 urls = [""] * len(c4)
-                phones = [""] * len(c4)
 
                 with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
                     future_to_idx = {
-                        executor.submit(crawl, idx, row["name"]): idx
+                        executor.submit(crawl, idx, row["str_name"]): idx
                         for idx, row in c4.iterrows()
                     }
                     for future in as_completed(future_to_idx):
@@ -675,12 +659,10 @@ def process_all_locations():
                         try:
                             _, du, ph = future.result()
                             urls[idx] = du
-                            phones[idx] = ph
                         except:
                             pass
 
                 c4["detail_url"] = urls
-                c4["phone"] = phones
 
                 spath = os.path.join(club_dir, f"{loc}_클럽_filtered.csv")
                 c4.fillna("-1").to_csv(spath, index=False, encoding="utf-8-sig")
