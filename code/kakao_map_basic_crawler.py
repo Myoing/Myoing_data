@@ -115,7 +115,7 @@ def search_places(driver, location, category):
         category (str): 검색할 카테고리명(예: '식당', '카페', '클럽').
 
     반환값:
-        없음
+        tuple: (location, category) 검색에 사용된 지역명과 카테고리명
 
     설명:
         - 카카오맵 웹사이트 접속 후 검색창에 지역명과 카테고리를 입력하여 검색.
@@ -144,6 +144,8 @@ def search_places(driver, location, category):
         except Exception as e2:
             logging.error(f"대체 검색 방법도 실패: {e2}")
             raise
+
+    return location, category
 
 
 def extract_store_info(store_element):
@@ -258,13 +260,14 @@ def extract_store_info(store_element):
     return store_info
 
 
-def collect_all_stores(driver, max_pages=20):
+def collect_all_stores(driver, max_pages=20, search_info=None):
     """
     카카오맵 검색 결과에서 가게 정보를 페이지별로 수집하는 함수.
 
     입력값:
         driver (webdriver.Chrome): 사용할 Chrome 웹 드라이버 객체.
         max_pages (int, 기본값=20): 수집할 최대 페이지 수.
+        search_info (tuple, 기본값=None): (location, category) 검색에 사용된 지역명과 카테고리명
 
     반환값:
         list: 각 가게 정보를 담은 딕셔너리 객체들의 리스트.
@@ -286,6 +289,9 @@ def collect_all_stores(driver, max_pages=20):
         current_search = search_input.get_attribute("value")
     except:
         current_search = "알 수 없음"
+
+    # 검색 정보 설정
+    location, category = search_info if search_info else ("", "")
 
     while current_page <= max_pages:
         logging.info(
@@ -323,6 +329,10 @@ def collect_all_stores(driver, max_pages=20):
             # 각 가게의 정보를 수집합니다
             for store_element in store_elements:
                 store_info = extract_store_info(store_element)
+
+                # 검색 키워드 정보 추가
+                store_info["str_location_keyword"] = location
+                store_info["str_main_category"] = category
 
                 # 10페이지 이후에는 리뷰가 있는 가게만 수집 (50개 미만일 때만)
                 if current_page > 10 and stores_with_reviews < 50:
@@ -471,8 +481,8 @@ def process_location_category(args):
     driver = get_driver()
     try:
         logging.info(f"== {location} {category} 검색 시작 ==")
-        search_places(driver, location, category)
-        stores = collect_all_stores(driver, max_pages=20)
+        search_info = search_places(driver, location, category)
+        stores = collect_all_stores(driver, max_pages=20, search_info=search_info)
         df = pd.DataFrame(stores)
 
         # 중복 제거 (가게 이름 + 주소 기준)
