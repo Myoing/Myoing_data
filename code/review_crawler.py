@@ -222,7 +222,7 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
         list: 수집된 리뷰 목록. 각 리뷰는 딕셔너리로 다음 정보를 포함:
             {
                 "reviewer_name": 리뷰어 이름,
-                "user_rating": 평점(float, 0~5),
+                "reviewer_score": 평점(float, 0~5),
                 "review_date": 작성일,
                 "review_content": 리뷰 내용
             }
@@ -283,9 +283,9 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                             By.CSS_SELECTOR,
                             "div.review_detail div.info_grade span.starred_grade span.wrap_grade span.figure_star.on",
                         )
-                        user_rating = float(len(star_elements))
+                        reviewer_score = float(len(star_elements))
                     except Exception:
-                        user_rating = 0.0
+                        reviewer_score = 0.0
 
                     # 작성일 추출
                     try:
@@ -310,7 +310,7 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                     reviews.append(
                         {
                             "reviewer_name": reviewer_name,
-                            "user_rating": user_rating,
+                            "reviewer_score": reviewer_score,
                             "review_date": review_date,
                             "review_content": review_content,
                         }
@@ -363,32 +363,32 @@ def process_store_reviews(store_record):
         - 수집된 리뷰에 가게 정보 추가.
         - 수집 실패 시 빈 데이터프레임과 False 반환.
     """
-    store_name = store_record["str_name"]
-    store_address = store_record["str_address"]
+    str_name = store_record["str_name"]
+    str_address = store_record["str_address"]
     collected_reviews = []
 
     try:
         driver = get_driver()
-        if not search_store_detail(driver, store_name):
+        if not search_store_detail(driver, str_name):
             logging.warning(
-                f"[{store_name}] 상세 페이지 진입 실패: 가게 검색 또는 상세 페이지 이동 중 오류"
+                f"[{str_name}] 상세 페이지 진입 실패: 가게 검색 또는 상세 페이지 이동 중 오류"
             )
             return pd.DataFrame(), False
 
         reviews = scroll_and_collect_reviews(
-            driver, store_name, target_count=50, scroll_wait=2.0
+            driver, str_name, target_count=50, scroll_wait=2.0
         )
 
         # 각 리뷰에 가게 정보 추가 및 CSV 칼럼 순서 맞춤
         for review in reviews:
-            review["store_name"] = store_name
-            review["store_address"] = store_address
+            review["str_name"] = str_name
+            review["str_address"] = str_address
             collected_reviews.append(
                 {
-                    "store_name": review["store_name"],
-                    "store_address": review["store_address"],
-                    "user_name": review.get("reviewer_name", ""),
-                    "user_rating": review.get("user_rating", 0.0),
+                    "str_name": review["str_name"],
+                    "str_address": review["str_address"],
+                    "reviewer_name": review.get("reviewer_name", ""),
+                    "reviewer_score": review.get("reviewer_score", 0.0),
                     "review_date": review.get("review_date", ""),
                     "review_content": review.get("review_content", ""),
                 }
@@ -397,10 +397,10 @@ def process_store_reviews(store_record):
         df = pd.DataFrame(
             collected_reviews,
             columns=[
-                "store_name",
-                "store_address",
-                "user_name",
-                "user_rating",
+                "str_name",
+                "str_address",
+                "reviewer_name",
+                "reviewer_score",
                 "review_date",
                 "review_content",
             ],
@@ -410,16 +410,16 @@ def process_store_reviews(store_record):
         err_str = str(e).lower()
         if "invalid session id" in err_str:
             logging.error(
-                f"[{store_name}] 세션 오류 발생: 브라우저 세션이 만료되었거나 연결이 끊어짐"
+                f"[{str_name}] 세션 오류 발생: 브라우저 세션이 만료되었거나 연결이 끊어짐"
             )
         elif "no such element" in err_str:
-            logging.error(f"[{store_name}] 요소를 찾을 수 없음: {e}")
+            logging.error(f"[{str_name}] 요소를 찾을 수 없음: {e}")
         elif "timeout" in err_str:
-            logging.error(f"[{store_name}] 페이지 로딩 시간 초과: {e}")
+            logging.error(f"[{str_name}] 페이지 로딩 시간 초과: {e}")
         elif "stale element" in err_str:
-            logging.error(f"[{store_name}] 페이지 변경됨: {e}")
+            logging.error(f"[{str_name}] 페이지 변경됨: {e}")
         else:
-            logging.error(f"[{store_name}] 리뷰 수집 중 예상치 못한 오류 발생: {e}")
+            logging.error(f"[{str_name}] 리뷰 수집 중 예상치 못한 오류 발생: {e}")
         return pd.DataFrame(), False
     finally:
         if driver:
@@ -428,7 +428,7 @@ def process_store_reviews(store_record):
                 if driver.window_handles:
                     driver.switch_to.window(driver.window_handles[0])
             except Exception as e:
-                logging.error(f"[{store_name}] 탭 닫기 중 오류 발생: {e}")
+                logging.error(f"[{str_name}] 탭 닫기 중 오류 발생: {e}")
             return_driver(driver)
 
 
