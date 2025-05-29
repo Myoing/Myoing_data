@@ -126,7 +126,7 @@ jobs:
           key: ${{ secrets.PRIVATE_KEY }}
           port: 22
           source: ".env"
-          target: "~/Myoing_data/.env"
+          target: "~/Myoing_data/"
 
       # 서버에 SSH 접속하여 docker-compose 명령 실행
       - name: SSH into server and deploy with docker-compose
