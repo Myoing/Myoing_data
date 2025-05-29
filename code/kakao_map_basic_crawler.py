@@ -40,13 +40,16 @@ def setup_driver():
 
     설명:
         - Chrome 브라우저의 알림 비활성화 옵션 적용.
-        - 필요시 headless 모드 사용 가능(주석 처리됨).
+        - EC2 환경에 최적화된 headless 모드 및 보안 설정 적용.
         - 생성된 브라우저 창을 최소화하여 시스템 자원 절약.
     """
     options = webdriver.ChromeOptions()
     options.add_argument("--disable-notifications")
-    # 필요한 경우 headless 모드 사용 가능
-    # options.add_argument("--headless")
+    options.add_argument("--headless=new")  # 새로운 headless 모드 사용
+    options.add_argument("--no-sandbox")  # EC2 환경에서 필요한 보안 설정
+    options.add_argument("--disable-dev-shm-usage")  # 공유 메모리 사용 비활성화
+    options.add_argument("--disable-gpu")  # GPU 사용 비활성화
+    options.add_argument("--disable-software-rasterizer")  # 소프트웨어 렌더링 비활성화
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     driver.minimize_window()  # 창 최소화

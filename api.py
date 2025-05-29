@@ -93,7 +93,11 @@ def setup_driver():
     """셀레니움 드라이버 설정 함수"""
     options = webdriver.ChromeOptions()
     options.add_argument("--disable-notifications")
-    options.add_argument("--headless")  # API 서버에서는 헤드리스 모드 사용
+    options.add_argument("--headless=new")  # 새로운 headless 모드 사용
+    options.add_argument("--no-sandbox")  # EC2 환경에서 필요한 보안 설정
+    options.add_argument("--disable-dev-shm-usage")  # 공유 메모리 사용 비활성화
+    options.add_argument("--disable-gpu")  # GPU 사용 비활성화
+    options.add_argument("--disable-software-rasterizer")  # 소프트웨어 렌더링 비활성화
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     return driver

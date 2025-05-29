@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     unzip \
     curl \
+    xvfb \
+    libxi6 \
+    libgconf-2-4 \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list \
     && apt-get update \
@@ -36,6 +39,7 @@ COPY . .
 # 환경 변수 설정
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+ENV DISPLAY=:99
 
 # 포트 노출
 EXPOSE 7070
