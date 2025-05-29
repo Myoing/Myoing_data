@@ -30,7 +30,7 @@ services:
   myoing-ml:
     image: myoing/myoing-ml:latest
     depends_on:
-      - data-server
+      - myoing-data
     volumes:
       - data_shared:/app/data
     ports:
