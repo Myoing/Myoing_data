@@ -30,9 +30,8 @@ RUN mkdir -p /app/data/1_location_categories \
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 애플리케이션 코드 복사
-COPY api.py /app/
-COPY code/ /app/code/
+# 전체 소스 복사
+COPY . .
 
 # 환경 변수 설정
 ENV PYTHONUNBUFFERED=1
