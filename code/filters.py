@@ -262,7 +262,48 @@ def process_review_filtered_data():
         logging.warning("⚠️ 필터링 후 데이터가 없습니다.")
 
 
+def main():
+    """
+    데이터 필터링 메인 실행 함수.
+
+    설명:
+        전체 데이터 필터링 프로세스를 순차적으로 실행:
+        1. 영업시간/클럽 필터링
+        2. 데이터 통합
+        3. 리뷰 수 필터링
+    """
+    start_time = time.time()
+    logging.info("데이터 필터링 시작")
+
+    try:
+        # 1. 영업시간/클럽 필터링
+        logging.info("1단계: 영업시간/클럽 필터링 시작")
+        process_and_save_filtered_data()
+        logging.info("1단계: 영업시간/클럽 필터링 완료")
+
+        # 2. 데이터 통합
+        logging.info("2단계: 데이터 통합 시작")
+        merge_and_fill_filtered_data()
+        logging.info("2단계: 데이터 통합 완료")
+
+        # 3. 리뷰 수 필터링
+        logging.info("3단계: 리뷰 수 필터링 시작")
+        process_review_filtered_data()
+        logging.info("3단계: 리뷰 수 필터링 완료")
+
+    except Exception as e:
+        logging.error(f"데이터 필터링 중 오류 발생: {e}")
+        raise
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    hours = int(execution_time // 3600)
+    minutes = int((execution_time % 3600) // 60)
+    seconds = int(execution_time % 60)
+
+    logging.info(f"데이터 필터링 완료")
+    logging.info(f"총 실행 시간: {hours}시간 {minutes}분 {seconds}초")
+
+
 if __name__ == "__main__":
-    process_and_save_filtered_data()  # 영업시간/클럽 필터링
-    merge_and_fill_filtered_data()  # 데이터 통합
-    process_review_filtered_data()  # 리뷰 수 필터링
+    main()
