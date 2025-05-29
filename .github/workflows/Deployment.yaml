@@ -7,21 +7,23 @@ on:
     branches: [main]
 
 jobs:
-  # 빌드 job: Python 환경 설정, 의존성 설치, 코드 검사, Docker 이미지 빌드 및 푸시를 수행
+  # 빌드 단계: 코드 검사 + Docker 이미지 빌드 및 Docker Hub 푸시
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # 리포지토리 체크아웃
+      - name: 리포지토리 체크아웃
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      # Python 환경 설정
+      - name: Python 3.10 설정
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      # pip 캐시 저장/복원으로 Python 패키지 설치 시간 단축
-      - name: Cache pip
+      # pip 캐시 설정 (설치 시간 단축)
+      - name: pip 캐시 설정
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
@@ -29,7 +31,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install dependencies
+      # 의존성 설치
+      - name: 패키지 설치
         run: |
           python -m pip install --upgrade pip
           pip install flake8
@@ -37,44 +40,46 @@ jobs:
             pip install --no-cache-dir -r requirements.txt
           fi
 
-      - name: Display Python version
+      # Python 버전 출력
+      - name: Python 버전 확인
         run: python -V
 
-      - name: Lint with flake8
+      # 코드 린트 검사
+      - name: flake8 코드 검사
         run: |
-          echo "Running critical checks...(fail on syntax errors)"
+          echo "문법 오류 검사..."
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          echo "Running style checks...(log only)"
+          echo "스타일 검사..."
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-      - name: Check for Dockerfile
+      # Dockerfile 존재 확인
+      - name: Dockerfile 확인
         run: |
-          echo "Checking for Dockerfile..."
           if [ -f "./Dockerfile" ]; then
-            echo "Dockerfile found."
+            echo "Dockerfile 존재 확인됨"
           else
-            echo "Dockerfile not found. Aborting."
+            echo "Dockerfile 없음. 중단합니다."
             exit 1
           fi
 
-      # BuildKit 다중 아키텍처 지원을 위한 QEMU 설정
-      - name: Set up QEMU
+      # QEMU 설정 (다중 아키텍처 지원)
+      - name: QEMU 설정
         uses: docker/setup-qemu-action@v2
 
-      # Buildx 고급 빌드 기능 활성화를 위한 빌더 인스턴스 설정
-      - name: Set up Docker Buildx
+      # Buildx 설정 (고급 빌드 기능)
+      - name: Docker Buildx 설정
         uses: docker/setup-buildx-action@v2
 
-      # Docker Hub 로그인으로 이미지 푸시 권한 확보
-      - name: Log in to Docker Hub
+      # Docker Hub 로그인
+      - name: Docker Hub 로그인
         uses: docker/login-action@v2
         with:
           registry: docker.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # BuildKit 캐시 활용하여 Docker 이미지 빌드 및 푸시
-      - name: Build and push Docker image with cache
+      # Docker 이미지 빌드 및 캐시 기반 푸시
+      - name: Docker 이미지 빌드 및 푸시
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -84,13 +89,40 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:cache
           cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:cache,mode=max
 
-  # 배포 job: 빌드된 Docker 이미지를 서버에 배포하고 컨테이너를 실행
+  # 배포 단계: 서버에 접속하여 docker-compose로 배포
   deploy:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH into Server and Deploy
+      # 리포지토리 다시 체크아웃 (코드 복사용)
+      - name: 리포지토리 체크아웃
+        uses: actions/checkout@v3
+
+      # 서버로 프로젝트 전체 복사 (scp)
+      - name: 서버로 코드 복사
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          port: 22
+          source: "."
+          target: "~/Myoing_data"
+
+      # .env 파일을 서버로 복사
+      - name: .env 파일 복사
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          port: 22
+          source: ".env"
+          target: "~/Myoing_data/.env"
+
+      # 서버에 접속하여 docker-compose로 배포 수행
+      - name: 서버에 접속하여 배포 실행
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
@@ -98,19 +130,17 @@ jobs:
           key: ${{ secrets.PRIVATE_KEY }}
           port: 22
           script: |
-            # Pull latest image
-            docker pull ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest
+            # 프로젝트 디렉토리로 이동
+            cd ~/Myoing_data
 
-            # Stop and remove existing container
-            docker stop ${{ secrets.DOCKER_REPO }} || true
-            docker rm   ${{ secrets.DOCKER_REPO }} || true
+            # 최신 Docker 이미지 풀
+            docker-compose pull
 
-            # Run new container
-            docker run -d \
-              --name ${{ secrets.DOCKER_REPO }} \
-              --restart unless-stopped \
-              -p 7070:7070 \
-              ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest
+            # 기존 컨테이너 및 볼륨 중지 및 삭제
+            docker-compose down -v
 
-            # Cleanup unused images
+            # 새로운 컨테이너 실행
+            docker-compose up -d
+
+            # 불필요한 이미지 및 볼륨 정리
             docker system prune -af --volumes
