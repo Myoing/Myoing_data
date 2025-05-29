@@ -14,26 +14,27 @@ services:
     volumes:
       - myoing_mysql_data:/var/lib/mysql
 
-  data-server:
+  myoing-data:
     image: myoing/myoing-data:latest
     volumes:
-      - data_shared:/app/data
+      - data_shared:/data
     environment:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
       - DB_NAME=${DB_NAME}
+    ports:
+      - "7070:7070"
 
   myoing-ml:
     image: myoing/myoing-ml:latest
     depends_on:
       - data-server
-      - myoing-mysql
     volumes:
       - data_shared:/app/data
     ports:
-      - "7070:7070"
+      - "8080:8080"
 
 volumes:
   data_shared:
