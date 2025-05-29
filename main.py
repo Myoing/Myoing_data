@@ -29,6 +29,11 @@ def main():
         subprocess.run(["python", "code/review_crawler.py"])
         logging.info("====== 3단계: 리뷰 크롤링 완료 ======")
 
+        # 4단계: 데이터베이스 업데이트
+        logging.info("====== 4단계: 데이터베이스 업데이트 시작 ======")
+        subprocess.run(["python", "DB_code/data_updater.py"])
+        logging.info("====== 4단계: 데이터베이스 업데이트 완료 ======")
+
         logging.info("모든 작업이 완료되었습니다!")
 
     except Exception as e:
