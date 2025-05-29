@@ -15,7 +15,7 @@ services:
       - myoing_mysql_data:/var/lib/mysql
 
   data-server:
-    image: myoing-data:latest
+    image: myoing/myoing-data:latest
     volumes:
       - data_shared:/app/data
     environment:
