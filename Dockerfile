@@ -39,7 +39,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
 # 포트 노출
-EXPOSE 8000
+EXPOSE 7070
 
 # 애플리케이션 실행
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "7070"] 
