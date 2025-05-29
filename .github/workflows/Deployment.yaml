@@ -7,23 +7,23 @@ on:
     branches: [main]
 
 jobs:
-  # 빌드 단계: 코드 검사 + Docker 이미지 빌드 및 Docker Hub 푸시
+  # 빌드 작업: Python 환경 설정, 린트 검사, Docker 이미지 빌드 및 푸시
   build:
     runs-on: ubuntu-latest
 
     steps:
       # 리포지토리 체크아웃
-      - name: 리포지토리 체크아웃
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Python 환경 설정
-      - name: Python 3.10 설정
+      # Python 3.10 버전 설정
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      # pip 캐시 설정 (설치 시간 단축)
-      - name: pip 캐시 설정
+      # pip 캐시 설정
+      - name: Cache pip
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
@@ -31,8 +31,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # 의존성 설치
-      - name: 패키지 설치
+      # 의존성 패키지 설치
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flake8
@@ -41,45 +41,43 @@ jobs:
           fi
 
       # Python 버전 출력
-      - name: Python 버전 확인
+      - name: Display Python version
         run: python -V
 
-      # 코드 린트 검사
-      - name: flake8 코드 검사
+      # flake8 린트 검사 수행
+      - name: Lint with flake8
         run: |
-          echo "문법 오류 검사..."
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          echo "스타일 검사..."
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-      # Dockerfile 존재 확인
-      - name: Dockerfile 확인
+      # Dockerfile 존재 여부 확인
+      - name: Check for Dockerfile
         run: |
           if [ -f "./Dockerfile" ]; then
-            echo "Dockerfile 존재 확인됨"
+            echo "Dockerfile found."
           else
-            echo "Dockerfile 없음. 중단합니다."
+            echo "Dockerfile not found. Aborting."
             exit 1
           fi
 
-      # QEMU 설정 (다중 아키텍처 지원)
-      - name: QEMU 설정
+      # QEMU 설정 (다중 아키텍처 빌드를 위한 가상화 지원)
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
-      # Buildx 설정 (고급 빌드 기능)
-      - name: Docker Buildx 설정
+      # Docker Buildx 설정
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       # Docker Hub 로그인
-      - name: Docker Hub 로그인
+      - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           registry: docker.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Docker 이미지 빌드 및 캐시 기반 푸시
-      - name: Docker 이미지 빌드 및 푸시
+      # Docker 이미지 빌드 및 푸시 (캐시 활용)
+      - name: Build and push Docker image with cache
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -89,18 +87,27 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:cache
           cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:cache,mode=max
 
-  # 배포 단계: 서버에 접속하여 docker-compose로 배포
+  # 배포 작업: 서버에 접속하여 docker-compose로 전체 서비스 배포
   deploy:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      # 리포지토리 다시 체크아웃 (코드 복사용)
-      - name: 리포지토리 체크아웃
+      # 리포지토리 체크아웃
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 서버로 프로젝트 전체 복사 (scp)
-      - name: 서버로 코드 복사
+      # GitHub Secrets로부터 .env 파일 생성
+      - name: Create .env file from GitHub Secrets
+        run: |
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+
+      # 서버로 프로젝트 전체 복사
+      - name: Copy project source code to server
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.HOST }}
@@ -110,8 +117,8 @@ jobs:
           source: "."
           target: "~/Myoing_data"
 
-      # .env 파일을 서버로 복사
-      - name: .env 파일 복사
+      # 서버로 .env 파일 복사
+      - name: Copy .env file to server
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.HOST }}
@@ -121,8 +128,8 @@ jobs:
           source: ".env"
           target: "~/Myoing_data/.env"
 
-      # 서버에 접속하여 docker-compose로 배포 수행
-      - name: 서버에 접속하여 배포 실행
+      # 서버에 SSH 접속하여 docker-compose 명령 실행
+      - name: SSH into server and deploy with docker-compose
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
@@ -130,17 +137,8 @@ jobs:
           key: ${{ secrets.PRIVATE_KEY }}
           port: 22
           script: |
-            # 프로젝트 디렉토리로 이동
             cd ~/Myoing_data
-
-            # 최신 Docker 이미지 풀
             docker-compose pull
-
-            # 기존 컨테이너 및 볼륨 중지 및 삭제
             docker-compose down -v
-
-            # 새로운 컨테이너 실행
             docker-compose up -d
-
-            # 불필요한 이미지 및 볼륨 정리
             docker system prune -af --volumes
