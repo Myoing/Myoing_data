@@ -5,20 +5,26 @@ from sqlalchemy import (
     Float,
     DateTime,
     Time,
-    ForeignKey,
+    ForeignKeyConstraint,
+    PrimaryKeyConstraint,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
-
+# [1] Store 테이블 정의
 class Store(Base):
     __tablename__ = "store_table"
 
     # 복합 기본키 구성
-    str_name = Column(String(255), primary_key=True)   
-    str_address = Column(String(255), primary_key=True)  
+    str_name = Column(String(255))
+    str_address = Column(String(255))
+
+    # PrimaryKeyConstraint는 __table_args__로 명시
+    __table_args__ = (
+        PrimaryKeyConstraint("str_name", "str_address"),
+    )
 
     str_location_keyword = Column(String(100))
     str_main_category = Column(String(100))
@@ -32,20 +38,19 @@ class Store(Base):
     str_url = Column(String(255))
     str_telephone = Column(String(50))
 
-    # 리뷰와의 관계 설정
+    # 관계 설정
     reviews = relationship("Review", back_populates="store")
 
 
+# [2] Review 테이블 정의
 class Review(Base):
     __tablename__ = "review_table"
 
-    # 복합 기본키 구성
-    reviewer_name = Column(String(100), primary_key=True)
-    review_date = Column(DateTime, primary_key=True)
+    reviewer_name = Column(String(100))
+    review_date = Column(DateTime)
 
-    # 외래키: store_table(str_name, str_address)
-    str_name = Column(String(255), ForeignKey("store_table.str_name"))
-    str_address = Column(String(255), ForeignKey("store_table.str_address"))
+    str_name = Column(String(255))
+    str_address = Column(String(255))
 
     str_location_keyword = Column(String(100))
     str_main_category = Column(String(100))
@@ -54,3 +59,12 @@ class Review(Base):
 
     # 관계 설정
     store = relationship("Store", back_populates="reviews")
+
+    # 복합 기본키 + 복합 외래키 정의
+    __table_args__ = (
+        PrimaryKeyConstraint("reviewer_name", "review_date"),
+        ForeignKeyConstraint(
+            ["str_name", "str_address"],
+            ["store_table.str_name", "store_table.str_address"]
+        ),
+    )
