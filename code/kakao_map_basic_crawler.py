@@ -301,7 +301,7 @@ def extract_store_info(store_element):
         phone_element = store_element.find_element(By.CSS_SELECTOR, "span.phone")
         store_info["str_telephone"] = phone_element.text.strip()
     except NoSuchElementException:
-        store_info["str_telephone"] = -1
+        store_info["str_telephone"] = None
         logging.warning("전화번호를 찾을 수 없습니다.")
 
     return store_info

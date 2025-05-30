@@ -40,6 +40,10 @@ def migrate_data():
         stores_df = pd.read_csv(STORES_CSV_PATH)
         reviews_df = pd.read_csv(REVIEWS_CSV_PATH)
 
+        # NaN → None (MySQL에 삽입 가능한 값으로 변환)
+        stores_df = stores_df.where(pd.notnull(stores_df), None)
+        reviews_df = reviews_df.where(pd.notnull(reviews_df), None)
+
         stores_df["run_time_start"] = stores_df["run_time_start"].apply(convert_time)
         stores_df["run_time_end"] = stores_df["run_time_end"].apply(convert_time)
         reviews_df["review_date"] = pd.to_datetime(reviews_df["review_date"])
