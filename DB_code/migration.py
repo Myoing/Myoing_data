@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from datetime import datetime
 from database import engine
@@ -9,9 +10,15 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 현재 파일 위치 기준 절대경로 생성
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 파일 경로 설정
+STORES_CSV_PATH = os.path.join(BASE_DIR, "../data/4_filtered_all_hour_club/filtered_all_hour_club_data.csv")
+REVIEWS_CSV_PATH = os.path.join(BASE_DIR, "../data/6_reviews_about_5/kakao_map_reviews_filtered.csv")
+
 
 def create_tables():
-    """데이터베이스 테이블 생성"""
     try:
         Base.metadata.create_all(bind=engine)
         logger.info("테이블이 성공적으로 생성되었습니다.")
@@ -21,7 +28,6 @@ def create_tables():
 
 
 def convert_time(time_str):
-    """문자열 시간을 datetime.time 객체로 변환"""
     try:
         return datetime.strptime(time_str, "%H:%M").time()
     except:
@@ -29,34 +35,20 @@ def convert_time(time_str):
 
 
 def migrate_data():
-    """CSV 데이터를 데이터베이스로 마이그레이션"""
     try:
         # CSV 파일 읽기
-        stores_df = pd.read_csv(
-            "data/4_filtered_all_hour_club/filtered_all_hour_club_data.csv"
-        )
-        reviews_df = pd.read_csv(
-            "data/6_reviews_about_5/kakao_map_reviews_filtered.csv"
-        )
+        stores_df = pd.read_csv(STORES_CSV_PATH)
+        reviews_df = pd.read_csv(REVIEWS_CSV_PATH)
 
-        # 데이터 타입 변환
         stores_df["run_time_start"] = stores_df["run_time_start"].apply(convert_time)
         stores_df["run_time_end"] = stores_df["run_time_end"].apply(convert_time)
         reviews_df["review_date"] = pd.to_datetime(reviews_df["review_date"])
 
-        # 세션 생성
         with Session(engine) as session:
-            # 가게 데이터 삽입
             for _, row in stores_df.iterrows():
-                store = Store(**row.to_dict())
-                session.merge(store)  # merge를 사용하여 중복 데이터 처리
-
-            # 리뷰 데이터 삽입
+                session.merge(Store(**row.to_dict()))
             for _, row in reviews_df.iterrows():
-                review = Review(**row.to_dict())
-                session.merge(review)  # merge를 사용하여 중복 데이터 처리
-
-            # 변경사항 저장
+                session.merge(Review(**row.to_dict()))
             session.commit()
 
         logger.info("데이터 마이그레이션이 성공적으로 완료되었습니다.")
