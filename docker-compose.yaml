@@ -37,13 +37,15 @@ services:
     depends_on:
       - myoing-data
     volumes:
-      - data_shared:/app/data
+      - data_shared:/app/data           # 데이터 공유
+      - ml_output:/app/output           # output 보호 (공유하지 않더라도 로컬 볼륨으로 보존)
     ports:
       - "8088:8088"
 
 volumes:
   data_shared:
     driver: local
-
+  ml_output:
+    driver: local
   myoing_mysql_data:
     driver: local
