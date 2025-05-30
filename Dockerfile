@@ -23,11 +23,11 @@ RUN apt-get update && apt-get install -y \
 
 # 필요한 디렉토리 구조 생성
 RUN mkdir -p /app/data/1_location_categories \
-    /app/data/2_merged_location_categories \
-    /app/data/3_filtered_location_categories \
-    /app/data/4_filtered_all \
-    /app/data/5_club_filter_results \
-    /app/data/6_reviews_about_4
+    /app/data/2_combined_location_categories \
+    /app/data/3_filtered_location_categories_hour_club \
+    /app/data/4_filtered_all_hour_club \
+    /app/data/5_filtered_all_hour_club_reviewcount \
+    /app/data/6_reviews_about_5
 
 # 필요한 파이썬 패키지 설치를 위한 requirements.txt 복사 및 설치
 COPY requirements.txt /app/requirements.txt
