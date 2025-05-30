@@ -542,7 +542,10 @@ def main():
         )
 
         # 리뷰 내용(review_content)이 비어있는 행은 제거한 파일 (빈 리뷰도 포함시킨 전체 파일과 별도로 저장)
-        filtered_df = all_reviews_df[all_reviews_df["review_content"].str.strip() != ""]
+        filtered_df = all_reviews_df[
+            all_reviews_df["review_content"].notna()
+            & (all_reviews_df["review_content"].str.strip() != "")
+        ]
         output_path_filtered = os.path.join(
             output_dir, "kakao_map_reviews_filtered.csv"
         )
