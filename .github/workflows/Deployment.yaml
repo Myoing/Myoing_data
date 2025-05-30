@@ -139,6 +139,5 @@ jobs:
           script: |
             cd ~/Myoing_data
             docker-compose pull
-            docker-compose down -v
+            docker-compose down
             docker-compose up -d
-            docker system prune -af --volumes
