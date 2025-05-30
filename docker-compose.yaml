@@ -4,6 +4,7 @@ services:
   myoing-mysql:
     image: mysql:8
     container_name: myoing-mysql
+    restart: always 
     environment:
       MYSQL_ROOT_PASSWORD: 4321
       MYSQL_DATABASE: myoing_db
@@ -16,6 +17,8 @@ services:
 
   myoing-data:
     image: myoing/myoing-data:latest
+    container_name: myoing-data
+    restart: always
     volumes:
       - data_shared:/data
     environment:
@@ -29,12 +32,14 @@ services:
 
   myoing-ml:
     image: myoing/myoing-ml:latest
+    restart: always
+    container_name: myoing-ml
     depends_on:
       - myoing-data
     volumes:
       - data_shared:/app/data
     ports:
-      - "8080:8080"
+      - "8088:8088"
 
 volumes:
   data_shared:
