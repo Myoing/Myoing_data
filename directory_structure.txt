@@ -16,7 +16,8 @@ Myoing_data/
 │   ├── __init__.py                 # 파이썬 패키지 초기화 파일
 │   ├── database.py                 # 데이터베이스 연결 설정
 │   ├── models.py                   # SQLAlchemy 모델 정의
-│   └── migration.py                # 데이터 마이그레이션 스크립트
+│   ├── migration.py                # 데이터 마이그레이션 스크립트
+│   └── data_updater.py            # 크롤링 데이터 DB 업데이트 모듈
 │
 ├── data/                           # 데이터 디렉토리
 │   ├── 1_location_categories/      # 1단계: 지역별 카테고리 데이터
@@ -50,7 +51,8 @@ Myoing_data/
 ├── api.py                                # FastAPI 기반 API 서버 (웹 서비스용)
 ├── README.md                             # 프로젝트 설명 파일
 ├── requirements.txt                      # 의존성 패키지 목록
-└── .env                                  # 환경 변수 설정 파일
+├── .env                                  # 환경 변수 설정 파일
+└── crawler.log                           # 크롤링 로그 파일
 
 ## 프로젝트 실행 순서
 1. CLI 방식: main.py 실행
@@ -58,7 +60,7 @@ Myoing_data/
      - 1단계: 카카오맵 기본 크롤링 (kakao_map_basic_crawler.py)
      - 2단계: 데이터 필터링 (filters.py)
      - 3단계: 리뷰 크롤링 (review_crawler.py)
-     - 4단계: DB 마이그레이션 (migration.py)
+     - 4단계: DB 업데이트 (data_updater.py)
 
 2. API 방식: api.py 실행
    - FastAPI 기반 웹 서버 시작 (포트: 7070)
