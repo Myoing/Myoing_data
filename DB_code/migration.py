@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 파일 경로 설정
-STORES_CSV_PATH = os.path.join(BASE_DIR, "../data/4_filtered_all_hour_club/filtered_all_hour_club_data.csv")
+STORES_CSV_PATH = os.path.join(BASE_DIR, "../data/4_filtered_all_hour_club/4_filtered_all_hour_club_data.csv")
 REVIEWS_CSV_PATH = os.path.join(BASE_DIR, "../data/6_reviews_about_5/kakao_map_reviews_filtered.csv")
 
 

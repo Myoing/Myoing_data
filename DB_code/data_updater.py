@@ -14,7 +14,7 @@ def update_database():
 
         # 새로운 크롤링 데이터 로드
         new_stores_df = pd.read_csv(
-            "data/4_filtered_all_hour_club/filtered_all_hour_club_data.csv"
+            "data/4_filtered_all_hour_club/4_filtered_all_hour_club_data.csv"
         )
         new_reviews_df = pd.read_csv(
             "data/6_reviews_about_5/kakao_map_reviews_filtered.csv"
