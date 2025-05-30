@@ -16,15 +16,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORES_CSV_PATH = os.path.join(BASE_DIR, "../data/4_filtered_all_hour_club/4_filtered_all_hour_club_data.csv")
 REVIEWS_CSV_PATH = os.path.join(BASE_DIR, "../data/6_reviews_about_5/kakao_map_reviews_filtered.csv")
 
-# [테이블 생성 함수]
-def create_tables():
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("테이블이 성공적으로 생성되었습니다.")
-    except Exception as e:
-        logger.error(f"테이블 생성 중 오류 발생: {e}")
-        raise
-
 # [시간 문자열을 datetime.time 객체로 변환]
 def convert_time(time_str):
     try:
@@ -36,8 +27,8 @@ def convert_time(time_str):
 def row_to_dict_safe(row):
     return {k: None if pd.isna(v) else v for k, v in row.items()}
 
-# [마이그레이션 수행 함수]
-def migrate_data():
+# [데이터베이스 업데이트 수행 함수]
+def update_data():
     try:
         # 1. CSV 파일 읽기
         stores_df = pd.read_csv(STORES_CSV_PATH)
@@ -48,33 +39,48 @@ def migrate_data():
         check_missing_values(stores_df, reviews_df)
         logger.info("결측값 분석이 완료되었습니다.")
 
-        # 3. 시간 및 날짜 타입 변환
+        # 3. 타입 변환
         stores_df["run_time_start"] = stores_df["run_time_start"].apply(convert_time)
         stores_df["run_time_end"] = stores_df["run_time_end"].apply(convert_time)
         reviews_df["review_date"] = pd.to_datetime(reviews_df["review_date"], errors="coerce")
 
-        # 4. 기존 데이터와 중복 제거 (str_name + str_address 기준)
+        # 4. 기존 store 중복 제거 (str_name + str_address 기준)
         existing_store = pd.read_sql("SELECT str_name, str_address FROM store_table", engine)
         stores_df["pk"] = stores_df["str_name"] + "-" + stores_df["str_address"]
         existing_store["pk"] = existing_store["str_name"] + "-" + existing_store["str_address"]
         stores_df = stores_df[~stores_df["pk"].isin(existing_store["pk"])]
         stores_df = stores_df.drop(columns=["pk"])
+        logger.info(f"store_table에 추가될 신규 데이터: {len(stores_df)}건")
 
-        # 5. 세션 내 안전한 삽입 수행
+        # 5. 기존 review 중복 제거 (reviewer_name + review_date 기준)
+        existing_review = pd.read_sql("SELECT reviewer_name, review_date FROM review_table", engine)
+        reviews_df["pk"] = reviews_df["reviewer_name"].astype(str) + "-" + reviews_df["review_date"].astype(str)
+        existing_review["pk"] = existing_review["reviewer_name"].astype(str) + "-" + existing_review["review_date"].astype(str)
+        reviews_df = reviews_df[~reviews_df["pk"].isin(existing_review["pk"])]
+        reviews_df = reviews_df.drop(columns=["pk"])
+        logger.info(f"review_table에 추가될 신규 데이터: {len(reviews_df)}건")
+
+        # 6. 세션 내 안전한 삽입 및 카운팅
         with Session(engine) as session:
+            store_count = 0
             for _, row in stores_df.iterrows():
                 session.merge(Store(**row_to_dict_safe(row)))
+                store_count += 1
+
+            review_count = 0
             for _, row in reviews_df.iterrows():
                 session.merge(Review(**row_to_dict_safe(row)))
+                review_count += 1
+
             session.commit()
 
-        logger.info("데이터 마이그레이션이 성공적으로 완료되었습니다.")
+        logger.info(f"store_table에 {store_count}개, review_table에 {review_count}개 데이터가 추가(업데이트)되었습니다.")
+        logger.info("데이터 업데이트가 성공적으로 완료되었습니다.")
 
     except Exception as e:
-        logger.error(f"데이터 마이그레이션 중 오류 발생: {e}")
+        logger.error(f"데이터 업데이트 중 오류 발생: {e}")
         raise
 
-# [메인 함수]
+# [메인 실행 구간]
 if __name__ == "__main__":
-    create_tables()
-    migrate_data()
+    update_data()
