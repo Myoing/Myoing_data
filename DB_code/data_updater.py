@@ -38,7 +38,7 @@ def update_data():
         reviews_df = pd.read_csv(REVIEWS_CSV_PATH)
 
         # 2. 결측값 확인
-        logger.info("데이터 마이그레이션 전 결측값 분석을 시작합니다...")
+        logger.info("데이터 업데이트 전 결측값 분석을 시작합니다...")
         check_missing_values(stores_df, reviews_df)
         logger.info("결측값 분석이 완료되었습니다.")
 
