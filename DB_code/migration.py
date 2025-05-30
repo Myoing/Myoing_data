@@ -32,8 +32,12 @@ def migrate_data():
     """CSV 데이터를 데이터베이스로 마이그레이션"""
     try:
         # CSV 파일 읽기
-        stores_df = pd.read_csv("../data/4_filtered_all_hour_club_data.csv")
-        reviews_df = pd.read_csv("../data/kakao_map_reviews_filtered.csv")
+        stores_df = pd.read_csv(
+            "data/4_filtered_all_hour_club/filtered_all_hour_club_data.csv"
+        )
+        reviews_df = pd.read_csv(
+            "data/6_reviews_about_5/kakao_map_reviews_filtered.csv"
+        )
 
         # 데이터 타입 변환
         stores_df["run_time_start"] = stores_df["run_time_start"].apply(convert_time)
