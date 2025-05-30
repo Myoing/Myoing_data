@@ -541,11 +541,21 @@ def main():
             f"전체 리뷰 저장 완료: {len(all_reviews_df)}개의 리뷰, 파일: {output_path_all}"
         )
 
-        # 리뷰 내용(review_content)이 비어있는 행은 제거한 파일 (빈 리뷰도 포함시킨 전체 파일과 별도로 저장)
-        filtered_df = all_reviews_df[
-            all_reviews_df["review_content"].notna()
-            & (all_reviews_df["review_content"].str.strip() != "")
+        # 컨텐츠 기반(리뷰텍스트 기반) 장소 추천 시스템에서 신뢰도 높은 데이터만 사용하기 위함
+        # 주요 컬럼(장소명, 주소, 카테고리, 리뷰어 정보, 리뷰 내용 등) 중 하나라도 결측값(NaN) 또는 빈 값이 있으면 해당 행을 제거
+        # 리뷰 내용만 있는 것이 아니라, 추천 시스템의 입력으로 활용될 모든 필드가 완전하게 채워진 데이터만 남기기 위함
+        required_cols = [
+            "str_name",
+            "str_address",
+            "str_location_keyword",
+            "str_main_category",
+            "reviewer_name",
+            "reviewer_score",
+            "review_date",
+            "review_content",
         ]
+        filtered_df = all_reviews_df.dropna(subset=required_cols)
+        filtered_df = filtered_df[filtered_df["review_content"].str.strip() != ""]
         output_path_filtered = os.path.join(
             output_dir, "kakao_map_reviews_filtered.csv"
         )
@@ -556,7 +566,7 @@ def main():
             quoting=csv.QUOTE_ALL,
         )
         logging.info(
-            f"리뷰 내용이 있는 리뷰 저장 완료: {len(filtered_df)}개의 리뷰, 파일: {output_path_filtered}"
+            f"리뷰 주요 정보가 모두 있는 리뷰 저장 완료: {len(filtered_df)}개의 리뷰, 파일: {output_path_filtered}"
         )
 
         if failed_stores:
