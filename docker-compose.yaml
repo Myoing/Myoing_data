@@ -4,7 +4,7 @@ services:
   myoing-mysql:
     image: mysql:8
     container_name: myoing-mysql
-    restart: always 
+    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: 4321
       MYSQL_DATABASE: myoing_db
@@ -20,7 +20,7 @@ services:
     container_name: myoing-data
     restart: always
     volumes:
-      - data_shared:/data
+      - data_shared:/app/data # 데이터 공유 볼륨을 올바른 경로에 마운트
     environment:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -37,8 +37,8 @@ services:
     depends_on:
       - myoing-data
     volumes:
-      - data_shared:/app/data           # 데이터 공유
-      - ml_output:/app/output           # output 보호 (공유하지 않더라도 로컬 볼륨으로 보존)
+      - data_shared:/app/data # 데이터 공유
+      - ml_output:/app/output # output 보호 (공유하지 않더라도 로컬 볼륨으로 보존)
     ports:
       - "8088:8088"
 
