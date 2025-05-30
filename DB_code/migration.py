@@ -5,6 +5,7 @@ from database import engine
 from models import Base, Store, Review
 from sqlalchemy.orm import Session
 import logging
+from check_missing_values import check_missing_values
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -40,10 +41,17 @@ def migrate_data():
         stores_df = pd.read_csv(STORES_CSV_PATH)
         reviews_df = pd.read_csv(REVIEWS_CSV_PATH)
 
-        # NaN → None (MySQL에 삽입 가능한 값으로 변환)
-        stores_df = stores_df.where(pd.notnull(stores_df), None)
-        reviews_df = reviews_df.where(pd.notnull(reviews_df), None)
+        # 결측값 분석 실행
+        logger.info("데이터 마이그레이션 전 결측값 분석을 시작합니다...")
+        check_missing_values(stores_df, reviews_df)
+        logger.info("결측값 분석이 완료되었습니다.")
 
+        # NaN → None (MySQL에 삽입 가능한 값으로 변환)
+        # 크롤링 시 None을 넣었더라도 to_csv → read_csv 시점에서 NaN이 다시 생성 (CSV로 저장 후 다시 읽어들이는 과정에서 None이 NaN으로 재변환)
+        stores_df = stores_df.applymap(lambda x: None if pd.isna(x) else x)
+        reviews_df = reviews_df.applymap(lambda x: None if pd.isna(x) else x)
+
+        # 데이터 타입 변환
         stores_df["run_time_start"] = stores_df["run_time_start"].apply(convert_time)
         stores_df["run_time_end"] = stores_df["run_time_end"].apply(convert_time)
         reviews_df["review_date"] = pd.to_datetime(reviews_df["review_date"])
