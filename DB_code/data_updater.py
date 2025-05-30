@@ -13,8 +13,12 @@ def update_database():
         logger.info("데이터베이스 업데이트 시작")
 
         # 새로운 크롤링 데이터 로드
-        new_stores_df = pd.read_csv("data/4_filtered_all_hour_club_data.csv")
-        new_reviews_df = pd.read_csv("data/kakao_map_reviews_filtered.csv")
+        new_stores_df = pd.read_csv(
+            "data/4_filtered_all_hour_club/filtered_all_hour_club_data.csv"
+        )
+        new_reviews_df = pd.read_csv(
+            "data/6_reviews_about_5/kakao_map_reviews_filtered.csv"
+        )
 
         # DB에서 기존 데이터 로드
         existing_stores = pd.read_sql("SELECT * FROM store_table", engine)
