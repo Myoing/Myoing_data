@@ -48,8 +48,6 @@ def update_data():
 
         reviews_df["review_date"] = pd.to_datetime(reviews_df["review_date"], errors="coerce")
         reviews_df["reviewer_name"] = reviews_df["reviewer_name"].astype(str).str.strip()
-        reviews_df["str_name"] = reviews_df["str_name"].astype(str).str.strip()
-        reviews_df["str_address"] = reviews_df["str_address"].astype(str).str.strip()
         reviews_df = reviews_df.dropna(subset=["review_date"])
 
         # 4. 기존 store 중복 제거
@@ -61,47 +59,45 @@ def update_data():
         logger.info(f"store_table에 추가될 신규 데이터: {len(stores_df)}건")
 
         # 5. 기존 review 중복 제거
-        existing_review = pd.read_sql("SELECT reviewer_name, review_date, str_name, str_address FROM review_table", engine)
+        existing_review = pd.read_sql("SELECT reviewer_name, review_date FROM review_table", engine)
         existing_review["reviewer_name"] = existing_review["reviewer_name"].astype(str).str.strip()
-        existing_review["str_name"] = existing_review["str_name"].astype(str).str.strip()
-        existing_review["str_address"] = existing_review["str_address"].astype(str).str.strip()
         existing_review["review_date"] = pd.to_datetime(existing_review["review_date"], errors="coerce")
         existing_review = existing_review.dropna(subset=["review_date"])
 
         if COMPARE_DATE_ONLY:
             existing_review["pk"] = (
                 existing_review["reviewer_name"] + "|" +
-                existing_review["review_date"].dt.strftime("%Y-%m-%d") + "|" +
-                existing_review["str_name"] + "|" +
-                existing_review["str_address"]
+                existing_review["review_date"].dt.strftime("%Y-%m-%d")
             )
             reviews_df["pk"] = (
                 reviews_df["reviewer_name"] + "|" +
-                reviews_df["review_date"].dt.strftime("%Y-%m-%d") + "|" +
-                reviews_df["str_name"] + "|" +
-                reviews_df["str_address"]
+                reviews_df["review_date"].dt.strftime("%Y-%m-%d")
             )
         else:
             existing_review["pk"] = (
                 existing_review["reviewer_name"] + "|" +
-                existing_review["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S") + "|" +
-                existing_review["str_name"] + "|" +
-                existing_review["str_address"]
+                existing_review["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S")
             )
             reviews_df["pk"] = (
                 reviews_df["reviewer_name"] + "|" +
-                reviews_df["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S") + "|" +
-                reviews_df["str_name"] + "|" +
-                reviews_df["str_address"]
+                reviews_df["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S")
             )
 
         # 중복 제거
         reviews_df = reviews_df[~reviews_df["pk"].isin(existing_review["pk"])]
         reviews_df = reviews_df.drop(columns=["pk"])
+
         logger.info(f"review_table에 추가될 신규 데이터: {len(reviews_df)}건")
+        if not reviews_df.empty:
+            logger.info("⬇ 중복 제거 후 삽입 대상 리뷰 전체:")
+            logger.info("\n" + reviews_df[["reviewer_name", "review_date"]].to_string(index=False))
 
         # 6. DB 삽입
         with Session(engine) as session:
+            # 삽입 전 row 수 확인
+            pre_review_count = session.query(Review).count()
+            pre_store_count = session.query(Store).count()
+
             store_count = 0
             for _, row in stores_df.iterrows():
                 session.merge(Store(**row_to_dict_safe(row)))
@@ -114,7 +110,12 @@ def update_data():
 
             session.commit()
 
-        logger.info(f"store_table에 {store_count}개, review_table에 {review_count}개 데이터가 추가(업데이트)되었습니다.")
+            # 삽입 후 row 수 비교
+            post_review_count = session.query(Review).count()
+            post_store_count = session.query(Store).count()
+
+        logger.info(f"store_table: {pre_store_count} → {post_store_count} (증가: {post_store_count - pre_store_count})")
+        logger.info(f"review_table: {pre_review_count} → {post_review_count} (증가: {post_review_count - pre_review_count})")
         logger.info("데이터 업데이트가 성공적으로 완료되었습니다.")
 
     except Exception as e:
