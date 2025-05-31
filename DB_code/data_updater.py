@@ -48,35 +48,51 @@ def update_data():
 
         reviews_df["review_date"] = pd.to_datetime(reviews_df["review_date"], errors="coerce")
         reviews_df["reviewer_name"] = reviews_df["reviewer_name"].astype(str).str.strip()
+        reviews_df["str_name"] = reviews_df["str_name"].astype(str).str.strip()
+        reviews_df["str_address"] = reviews_df["str_address"].astype(str).str.strip()
         reviews_df = reviews_df.dropna(subset=["review_date"])
 
         # 4. 기존 store 중복 제거
         existing_store = pd.read_sql("SELECT str_name, str_address FROM store_table", engine)
-        stores_df["pk"] = stores_df["str_name"] + "-" + stores_df["str_address"]
-        existing_store["pk"] = existing_store["str_name"] + "-" + existing_store["str_address"]
+        stores_df["pk"] = stores_df["str_name"].astype(str).str.strip() + "-" + stores_df["str_address"].astype(str).str.strip()
+        existing_store["pk"] = existing_store["str_name"].astype(str).str.strip() + "-" + existing_store["str_address"].astype(str).str.strip()
         stores_df = stores_df[~stores_df["pk"].isin(existing_store["pk"])]
         stores_df = stores_df.drop(columns=["pk"])
         logger.info(f"store_table에 추가될 신규 데이터: {len(stores_df)}건")
 
         # 5. 기존 review 중복 제거
-        existing_review = pd.read_sql("SELECT reviewer_name, review_date FROM review_table", engine)
+        existing_review = pd.read_sql("SELECT reviewer_name, review_date, str_name, str_address FROM review_table", engine)
         existing_review["reviewer_name"] = existing_review["reviewer_name"].astype(str).str.strip()
+        existing_review["str_name"] = existing_review["str_name"].astype(str).str.strip()
+        existing_review["str_address"] = existing_review["str_address"].astype(str).str.strip()
         existing_review["review_date"] = pd.to_datetime(existing_review["review_date"], errors="coerce")
         existing_review = existing_review.dropna(subset=["review_date"])
 
         if COMPARE_DATE_ONLY:
             existing_review["pk"] = (
-                existing_review["reviewer_name"] + "-" + existing_review["review_date"].dt.strftime("%Y-%m-%d")
+                existing_review["reviewer_name"] + "|" +
+                existing_review["review_date"].dt.strftime("%Y-%m-%d") + "|" +
+                existing_review["str_name"] + "|" +
+                existing_review["str_address"]
             )
             reviews_df["pk"] = (
-                reviews_df["reviewer_name"] + "-" + reviews_df["review_date"].dt.strftime("%Y-%m-%d")
+                reviews_df["reviewer_name"] + "|" +
+                reviews_df["review_date"].dt.strftime("%Y-%m-%d") + "|" +
+                reviews_df["str_name"] + "|" +
+                reviews_df["str_address"]
             )
         else:
             existing_review["pk"] = (
-                existing_review["reviewer_name"] + "-" + existing_review["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+                existing_review["reviewer_name"] + "|" +
+                existing_review["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S") + "|" +
+                existing_review["str_name"] + "|" +
+                existing_review["str_address"]
             )
             reviews_df["pk"] = (
-                reviews_df["reviewer_name"] + "-" + reviews_df["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+                reviews_df["reviewer_name"] + "|" +
+                reviews_df["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S") + "|" +
+                reviews_df["str_name"] + "|" +
+                reviews_df["str_address"]
             )
 
         # 중복 제거
