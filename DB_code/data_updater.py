@@ -51,9 +51,13 @@ def update_data():
         reviews_df["reviewer_name"] = reviews_df["reviewer_name"].astype(str).str.strip()
         reviews_df["str_name"] = reviews_df["str_name"].astype(str).str.strip()
         reviews_df["str_address"] = reviews_df["str_address"].astype(str).str.strip()
-        reviews_df = reviews_df.dropna(subset=["review_date"])
 
-        # 4. 기존 store 중복 제거
+        # 4. 리뷰어 이름 또는 리뷰 날짜 결측인 경우 제거
+        reviews_df = reviews_df.dropna(subset=["review_date"])                      # review_date가 NaT인 행 제거
+        reviews_df = reviews_df[reviews_df["reviewer_name"] != ""]                  # reviewer_name이 빈 문자열인 행 제거
+        reviews_df = reviews_df[~reviews_df["reviewer_name"].isna()]                # reviewer_name이 NaN인 행 제거
+
+        # 5. 기존 store 중복 제거
         existing_store = pd.read_sql("SELECT str_name, str_address FROM store_table", engine)
         stores_df["pk"] = stores_df["str_name"].astype(str).str.strip() + "-" + stores_df["str_address"].astype(str).str.strip()
         existing_store["pk"] = existing_store["str_name"].astype(str).str.strip() + "-" + existing_store["str_address"].astype(str).str.strip()
@@ -61,13 +65,13 @@ def update_data():
         stores_df = stores_df.drop(columns=["pk"])
         logger.info(f"store_table에 추가될 신규 데이터: {len(stores_df)}건")
 
-        # 5. 기존 review 중복 제거
+        # 6. 기존 review 중복 제거
         existing_review = pd.read_sql("SELECT reviewer_name, review_date FROM review_table", engine)
         existing_review["reviewer_name"] = existing_review["reviewer_name"].astype(str).str.strip()
         existing_review["review_date"] = pd.to_datetime(existing_review["review_date"], errors="coerce")
         existing_review = existing_review.dropna(subset=["review_date"])
 
-        # 6. 중복 판별용 pk 생성
+        # 7. 중복 판별용 pk 생성
         if COMPARE_DATE_ONLY:
             existing_review["pk"] = existing_review["reviewer_name"] + "|" + existing_review["review_date"].dt.strftime("%Y-%m-%d")
             reviews_df["pk"] = reviews_df["reviewer_name"] + "|" + reviews_df["review_date"].dt.strftime("%Y-%m-%d")
@@ -75,32 +79,34 @@ def update_data():
             existing_review["pk"] = existing_review["reviewer_name"] + "|" + existing_review["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S")
             reviews_df["pk"] = reviews_df["reviewer_name"] + "|" + reviews_df["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # 7. 중복 제거
+        # 8. 중복 제거
         reviews_df = reviews_df.drop_duplicates(subset=["pk"])
         reviews_df = reviews_df[~reviews_df["pk"].isin(existing_review["pk"])]
         logger.info(f"review_table에 추가될 신규 데이터: {len(reviews_df)}건")
 
-        # 8. 중복 제거 후 pk 컬럼 제거
+        # 9. 중복 제거 후 pk 컬럼 제거
         reviews_df = reviews_df.drop(columns=["pk"])
 
-        # 9. 삽입 대상 리뷰 출력
+        # 10. 삽입 대상 리뷰 출력
         if not reviews_df.empty:
             logger.info("⬇ 중복 제거 후 삽입 대상 리뷰 전체:")
             logger.info("\n%s", reviews_df[["reviewer_name", "review_date"]].to_string(index=False))
         else:
             logger.info("중복 제거 후 삽입 대상 리뷰 없음")
 
-        # 10. DB 삽입
+        # 11. DB 삽입
         with Session(engine) as session:
             store_before = pd.read_sql("SELECT COUNT(*) FROM store_table", engine).iloc[0, 0]
             review_before = pd.read_sql("SELECT COUNT(*) FROM review_table", engine).iloc[0, 0]
 
             store_count, review_count, failed_count = 0, 0, 0
 
+            # 11-1) store 삽입
             for _, row in stores_df.iterrows():
                 session.add(Store(**row_to_dict_safe(row)))
                 store_count += 1
 
+            # 11-2) review 삽입
             for _, row in reviews_df.iterrows():
                 try:
                     session.add(Review(**row_to_dict_safe(row)))
@@ -116,7 +122,7 @@ def update_data():
             store_after = pd.read_sql("SELECT COUNT(*) FROM store_table", engine).iloc[0, 0]
             review_after = pd.read_sql("SELECT COUNT(*) FROM review_table", engine).iloc[0, 0]
 
-        # 11. 결과 요약
+        # 12. 결과 요약
         logger.info(f"store_table: {store_before} → {store_after} (증가: {store_after - store_before})")
         logger.info(f"review_table: {review_before} → {review_after} (증가: {review_after - review_before})")
 

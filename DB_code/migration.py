@@ -20,7 +20,9 @@ from check_missing_values import check_missing_values
     2. CSV 파일에서 데이터 읽기
     3. 결측값(누락 데이터) 분석 및 로그 출력
     4. 시간/날짜 타입 변환 및 NaN/NaT → None 변환
-    5. 모든 데이터를 DB에 삽입
+    5. 리뷰어 이름 또는 리뷰 날짜가 결측인 행 제거
+    6. 중복 리뷰 검증
+    7. 모든 데이터를 DB에 삽입
 
 ※ 이 스크립트는 **초기 적재(마이그레이션)** 용도로만 사용합니다.
 ─────────────────────────────────────────────────────────────────────────────
@@ -75,9 +77,15 @@ def migrate_data():
         stores_df["run_time_start"] = stores_df["run_time_start"].apply(convert_time)
         stores_df["run_time_end"] = stores_df["run_time_end"].apply(convert_time)
         reviews_df["review_date"] = pd.to_datetime(reviews_df["review_date"], errors="coerce")
-        reviews_df = reviews_df.dropna(subset=["review_date"])
 
-        # 4. 리뷰 중복 제거 (reviewer_name + review_date 기준)
+        # 4. 리뷰어 이름과 리뷰 날짜가 결측인 경우 제거
+        #    - reviewer_name을 문자열로 변환하고, 공백 제거 후 빈 문자열("") 또는 NaN인 행을 제거
+        reviews_df["reviewer_name"] = reviews_df["reviewer_name"].astype(str).str.strip()
+        reviews_df = reviews_df.dropna(subset=["review_date"])                     # review_date가 NaT인 행 제거
+        reviews_df = reviews_df[reviews_df["reviewer_name"] != ""]                 # reviewer_name이 빈 문자열인 행 제거
+        reviews_df = reviews_df[~reviews_df["reviewer_name"].isna()]               # reviewer_name이 NaN(원래 NaN이었다가 str 처리로 'nan'이 된 경우도 필터링)
+
+        # 5. 리뷰 중복 제거 (reviewer_name + review_date 기준)
         existing_review = pd.read_sql("SELECT reviewer_name, review_date FROM review_table", engine)
         existing_review["pk"] = existing_review["reviewer_name"].astype(str) + "-" + \
                                 pd.to_datetime(existing_review["review_date"]).dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -87,7 +95,7 @@ def migrate_data():
         reviews_df = reviews_df.drop(columns=["pk"])
         logger.info(f"중복 제거 후 삽입할 리뷰 수: {len(reviews_df)}건")
 
-        # 5. DB에 삽입
+        # 6. DB에 삽입
         with Session(engine) as session:
             store_count = 0
             for _, row in stores_df.iterrows():

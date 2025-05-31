@@ -75,7 +75,6 @@ services:
     restart: always
     depends_on:
       - myoing-mysql
-      - myoing-ml
     ports:
       - "8080:8080"
     environment:
