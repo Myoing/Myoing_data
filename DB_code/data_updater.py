@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # [설정: review 중복 비교 시 시간까지 비교할지 여부]
-COMPARE_DATE_ONLY = True  # True: 'YYYY-MM-DD'까지만 비교, False: 시간까지 비교
+COMPARE_DATE_ONLY = False  # True: 'YYYY-MM-DD'까지만 비교, False: 시간까지 비교
 
 # [경로 설정]
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
