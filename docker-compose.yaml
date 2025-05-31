@@ -1,3 +1,24 @@
+###############################################################
+# ✅ 통합 Compose 장점
+# 항목             설명
+# ───────────────────────────────────────────────────────
+# 운영 일원화       단일 명령어로 전체 시스템 up/down 가능
+# 버전 관리 통일    하나의 compose.yml로 전체 서비스 상태 추적 가능
+# CI/CD 통합 쉬움   GitHub Actions에서 전체 인프라 제어 용이
+# 환경 분리 가능    필요 시 .env, --profile, -f 옵션으로 dev/prod 분리 가능
+#
+# ❗ 주의할 점
+# - 기존 myoing-backend 또는 frontend 레포에서 사용하던 개별 Compose가 있다면
+#   해당 정의는 제거하거나, 서브 모듈로 분리해야 충돌 방지 가능
+# - Docker image/tag 관리 전략을 명확히 설정해야 합니다
+#   (예: latest 대신 버전 명시를 권장)
+#
+# 🔚 결론
+# 네, myoing-data 레포에 있는 docker-compose.yml을 전체 시스템 제어의 
+# 중앙 컨트롤러로 삼는 것은 충분히 가능하며,
+# 오히려 운영 일관성과 배포 자동화에 유리합니다.
+###############################################################
+
 version: "3.9"
 
 services:
@@ -14,38 +35,73 @@ services:
       - "3306:3306"
     volumes:
       - myoing_mysql_data:/var/lib/mysql
+    networks:
+      - myoing-net
 
   myoing-data:
     image: myoing/myoing-data:latest
     container_name: myoing-data
     restart: always
+    depends_on:
+      - myoing-mysql
     volumes:
-      - data_shared:/app/data # 데이터 공유 볼륨을 올바른 경로에 마운트
+      - data_shared:/app/data
     environment:
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_NAME=${DB_NAME}
-    ports:
-      - "7070:7070"
+      - DB_USER=myoing_user
+      - DB_PASSWORD=myoing_4321
+      - DB_HOST=myoing-mysql
+      - DB_PORT=3306
+      - DB_NAME=myoing_db
+    networks:
+      - myoing-net
 
   myoing-ml:
     image: myoing/myoing-ml:latest
-    restart: always
     container_name: myoing-ml
+    restart: always
     depends_on:
       - myoing-data
     volumes:
-      - data_shared:/app/data # 데이터 공유
-      - ml_output:/app/output # output 보호 (공유하지 않더라도 로컬 볼륨으로 보존)
+      - data_shared:/app/data
+      - ml_output:/app/output
     ports:
       - "8088:8088"
+    networks:
+      - myoing-net
+
+  springboot-app:
+    image: myoing/myoing-backend:latest
+    container_name: springboot-app
+    restart: always
+    depends_on:
+      - myoing-mysql
+      - myoing-ml
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://myoing-mysql:3306/myoing_db?useSSL=false&serverTimezone=Asia/Seoul
+      SPRING_DATASOURCE_USERNAME: myoing_user
+      SPRING_DATASOURCE_PASSWORD: myoing_4321
+      ML_URL: http://myoing-ml:8088
+    networks:
+      - myoing-net
+
+  myoing-frontend:
+    image: myoing/myoing-frontend:latest
+    container_name: myoing-frontend
+    restart: always
+    depends_on:
+      - springboot-app
+    ports:
+      - "3000:80"
+    networks:
+      - myoing-net
+
+networks:
+  myoing-net:
+    driver: bridge
 
 volumes:
-  data_shared:
-    driver: local
-  ml_output:
-    driver: local
   myoing_mysql_data:
-    driver: local
+  data_shared:
+  ml_output:
