@@ -24,13 +24,13 @@ Myoing_data/
 │   │
 │   ├── 2_combined_location_categories/  # 2단계: 통합된 지역 카테고리 데이터
 │   │
-│   ├── 3_filtered_location_categories/  # 3단계: 필터링된 지역별 카테고리 데이터
+│   ├── 3_filtered_location_categories_hour_club/  # 3단계: 시간대별 클럽 필터링 데이터
 │   │
-│   ├── 4_filtered_all/                  # 4단계: 전체 필터링 데이터
+│   ├── 4_filtered_all_hour_club/                  # 4단계: 전체 시간대 클럽 필터링 데이터
 │   │
-│   ├── 5_filtered_clubs/                # 5단계: 필터링된 클럽 데이터
+│   ├── 5_filtered_all_hour_club_reviewcount/      # 5단계: 전체 시간대 클럽 리뷰수 필터링 데이터
 │   │
-│   └── 6_reviews_about_4/               # 6단계: 리뷰 데이터
+│   └── 6_reviews_about_5/                        # 6단계: 5단계 관련 리뷰 데이터
 │
 ├── legacy/                               # 레거시 코드
 │   ├── crawler/
