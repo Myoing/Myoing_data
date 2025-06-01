@@ -75,5 +75,5 @@ class UserFeedback(Base):
 
     id = Column(Integer, primary_key=True)  # PK: id
     name = Column(String(150))  # 사용자 이름
-    satisfactionScore = Column(Integer)  # 만족도 점수
+    satisfaction_score = Column(Integer)  # 만족도 점수
     review = Column(Text)  # 설문 리뷰
