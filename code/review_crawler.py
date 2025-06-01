@@ -38,8 +38,11 @@ def setup_driver():
     """
     options = webdriver.ChromeOptions()
     options.add_argument("--disable-notifications")
-    # headless 모드 사용 시 아래 주석 해제
-    # options.add_argument("--headless")
+    options.add_argument("--headless=new")  # 새로운 headless 모드 사용
+    options.add_argument("--no-sandbox")  # EC2 환경에서 필요한 보안 설정
+    options.add_argument("--disable-dev-shm-usage")  # 공유 메모리 사용 비활성화
+    options.add_argument("--disable-gpu")  # GPU 사용 비활성화
+    options.add_argument("--disable-software-rasterizer")  # 소프트웨어 렌더링 비활성화
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     driver.minimize_window()
@@ -94,7 +97,7 @@ def return_driver(driver):
             driver_pool.put(setup_driver())
 
 
-def search_store_detail(driver, store_name):
+def search_store_detail(driver, str_name):
     """
     카카오맵에서 매장 검색 및 상세 페이지 접근 함수
 
@@ -103,19 +106,19 @@ def search_store_detail(driver, store_name):
 
     매개변수:
         driver (webdriver.Chrome): 사용할 웹드라이버 인스턴스
-        store_name (str): 검색할 매장명
+        str_name (str): 검색할 매장명
 
     반환값:
         bool: 상세 페이지 접근 성공 여부 (True: 성공, False: 실패)
     """
-    logging.info(f"'{store_name}' 상세정보 검색 시작...")
+    logging.info(f"'{str_name}' 상세정보 검색 시작...")
     driver.get("https://map.kakao.com/")
     time.sleep(2)
 
     try:
         search_input = driver.find_element(By.ID, "search.keyword.query")
         search_input.clear()
-        search_input.send_keys(store_name)
+        search_input.send_keys(str_name)
         search_button = driver.find_element(By.ID, "search.keyword.submit")
         driver.execute_script("arguments[0].click();", search_button)
         time.sleep(2)
@@ -132,7 +135,7 @@ def search_store_detail(driver, store_name):
                 result_name = (
                     link_name_elem.get_attribute("title") or link_name_elem.text
                 ).strip()
-                if result_name == store_name:
+                if result_name == str_name:
                     logging.info(f"일치하는 가게 발견: {result_name}")
                     detail_btn = result.find_element(
                         By.CSS_SELECTOR, "a[data-id='moreview']"
@@ -166,7 +169,7 @@ def search_store_detail(driver, store_name):
                                 link_name_elem.get_attribute("title")
                                 or link_name_elem.text
                             ).strip()
-                            if result_name == store_name:
+                            if result_name == str_name:
                                 logging.info(f"일치하는 가게 발견: {result_name}")
                                 detail_btn = result.find_element(
                                     By.CSS_SELECTOR, "a[data-id='moreview']"
@@ -187,7 +190,7 @@ def search_store_detail(driver, store_name):
                 logging.info("장소 더보기 버튼이 존재하지 않음")
         if not matched:
             logging.warning(
-                f"검색 결과에서 '{store_name}'과(와) 일치하는 가게를 찾지 못함"
+                f"검색 결과에서 '{str_name}'과(와) 일치하는 가게를 찾지 못함"
             )
             return False
 
@@ -205,7 +208,7 @@ def search_store_detail(driver, store_name):
         return False
 
 
-def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=2.0):
+def scroll_and_collect_reviews(driver, str_name, target_count=50, scroll_wait=2.0):
     """
     카카오맵 매장 상세 페이지에서 리뷰 스크롤링 및 수집 함수
 
@@ -214,7 +217,7 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
 
     매개변수:
         driver (webdriver.Chrome): 사용할 웹드라이버 인스턴스
-        store_name (str): 매장명 (로깅용)
+        str_name (str): 매장명 (로깅용)
         target_count (int): 수집할 목표 리뷰 개수 (기본값: 50)
         scroll_wait (float): 스크롤 간 대기 시간(초) (기본값: 2.0)
 
@@ -222,7 +225,7 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
         list: 수집된 리뷰 목록. 각 리뷰는 딕셔너리로 다음 정보를 포함:
             {
                 "reviewer_name": 리뷰어 이름,
-                "user_rating": 평점(float, 0~5),
+                "reviewer_score": 평점(float, 0~5),
                 "review_date": 작성일,
                 "review_content": 리뷰 내용
             }
@@ -238,13 +241,13 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                 By.CSS_SELECTOR, "div.inner_review"
             )
             if not review_containers:
-                logging.warning(f"[{store_name}] 리뷰 컨테이너를 찾을 수 없습니다.")
+                logging.warning(f"[{str_name}] 리뷰 컨테이너를 찾을 수 없습니다.")
                 break
 
             if len(review_containers) == last_count:
                 scroll_attempt += 1
                 logging.info(
-                    f"[{store_name}] 새로운 리뷰 로드 시도 {scroll_attempt}/{max_scroll_attempts}"
+                    f"[{str_name}] 새로운 리뷰 로드 시도 {scroll_attempt}/{max_scroll_attempts}"
                 )
             else:
                 scroll_attempt = 0
@@ -274,8 +277,10 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                             .replace("\n", " ")
                             .strip()
                         )
+                        if not review_content:  # 빈 문자열인 경우 None으로 처리
+                            review_content = None
                     except Exception as ce:
-                        review_content = ""
+                        review_content = None
 
                     # 평점 추출: <span class="figure_star on"> 개수로 계산
                     try:
@@ -283,9 +288,11 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                             By.CSS_SELECTOR,
                             "div.review_detail div.info_grade span.starred_grade span.wrap_grade span.figure_star.on",
                         )
-                        user_rating = float(len(star_elements))
+                        reviewer_score = float(len(star_elements))
+                        if reviewer_score == 0:  # 평점이 0인 경우 None으로 처리
+                            reviewer_score = None
                     except Exception:
-                        user_rating = 0.0
+                        reviewer_score = None
 
                     # 작성일 추출
                     try:
@@ -294,34 +301,38 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
                             "div.review_detail div.info_grade span.txt_date",
                         )
                         review_date = date_elem.text.strip()
+                        if not review_date:  # 빈 문자열인 경우 None으로 처리
+                            review_date = None
                     except NoSuchElementException:
-                        review_date = ""
+                        review_date = None
 
-                    # 리뷰어 이름 추출: 구체적인 선택자 사용 (div.info_user > div.wrap_user > a.link_user > span.name_user)
+                    # 리뷰어 이름 추출
                     try:
                         reviewer_elem = container.find_element(
                             By.CSS_SELECTOR,
                             "div.info_user > div.wrap_user > a.link_user > span.name_user",
                         )
                         reviewer_name = reviewer_elem.text.strip()
+                        if not reviewer_name:  # 빈 문자열인 경우 None으로 처리
+                            reviewer_name = None
                     except NoSuchElementException:
-                        reviewer_name = ""
+                        reviewer_name = None
 
                     reviews.append(
                         {
                             "reviewer_name": reviewer_name,
-                            "user_rating": user_rating,
+                            "reviewer_score": reviewer_score,
                             "review_date": review_date,
                             "review_content": review_content,
                         }
                     )
                     logging.info(
-                        f"[{store_name}] 리뷰 수집: {len(reviews)}/{target_count}"
+                        f"[{str_name}] 리뷰 수집: {len(reviews)}/{target_count}"
                     )
                     if len(reviews) >= target_count:
                         break
                 except Exception as inner_e:
-                    logging.warning(f"[{store_name}] 리뷰 정보 추출 중 오류: {inner_e}")
+                    logging.warning(f"[{str_name}] 리뷰 정보 추출 중 오류: {inner_e}")
                     continue
 
             if len(reviews) >= target_count:
@@ -332,59 +343,71 @@ def scroll_and_collect_reviews(driver, store_name, target_count=50, scroll_wait=
             )
             time.sleep(scroll_wait)
         except Exception as e:
-            logging.error(f"[{store_name}] 리뷰 수집 중 오류: {e}")
+            logging.error(f"[{str_name}] 리뷰 수집 중 오류: {e}")
             break
 
     if len(reviews) < target_count:
         logging.warning(
-            f"[{store_name}] 목표 리뷰 수({target_count}개)에 도달하지 못했습니다. (수집된 리뷰: {len(reviews)}개)"
+            f"[{str_name}] 목표 리뷰 수({target_count}개)에 도달하지 못했습니다. (수집된 리뷰: {len(reviews)}개)"
         )
     return reviews
 
 
 def process_store_reviews(store_record):
     """
-    단일 매장의 리뷰 수집 및 처리 함수
+    가게 리뷰 수집 및 처리 함수.
 
-    매장 정보를 바탕으로 해당 매장의 리뷰를 수집하고 처리하여 데이터프레임으로 변환함.
-
-    매개변수:
-        store_record (pd.Series): 매장 정보를 담은 DataFrame의 행
-                                 필수 필드: 'name' (매장명)
-                                 선택 필드: 'address' (매장 주소)
+    입력값:
+        store_record (pandas.Series): 가게 정보가 담긴 Series 객체.
+            - str_name: 가게 이름
+            - str_address: 가게 주소
+            - str_location_keyword: 검색 지역 키워드
+            - str_main_category: 메인 카테고리
+            - i_review_count: 리뷰 수
 
     반환값:
-        tuple: (리뷰 데이터프레임, 성공 여부)
-            - pd.DataFrame: 수집된 리뷰 데이터프레임 (성공 시)
-            - bool: 수집 성공 여부 (True: 성공, False: 실패)
+        tuple: (pandas.DataFrame, bool)
+            - DataFrame: 수집된 리뷰 정보가 담긴 데이터프레임
+            - bool: 수집 성공 여부
+
+    설명:
+        - 가게 상세 페이지로 이동하여 리뷰 정보 수집.
+        - 리뷰 스크롤링을 통해 지정된 개수만큼 리뷰 수집.
+        - 수집된 리뷰에 가게 정보 추가.
+        - 수집 실패 시 빈 데이터프레임과 False 반환.
     """
-    store_name = store_record["name"]
-    store_address = store_record.get("address", "")
-    driver = None
+    str_name = store_record["str_name"]
+    str_address = store_record["str_address"]
+    str_location_keyword = store_record["str_location_keyword"]
+    str_main_category = store_record["str_main_category"]
     collected_reviews = []
 
     try:
         driver = get_driver()
-        if not search_store_detail(driver, store_name):
+        if not search_store_detail(driver, str_name):
             logging.warning(
-                f"[{store_name}] 상세 페이지 진입 실패: 가게 검색 또는 상세 페이지 이동 중 오류"
+                f"[{str_name}] 상세 페이지 진입 실패: 가게 검색 또는 상세 페이지 이동 중 오류"
             )
             return pd.DataFrame(), False
 
         reviews = scroll_and_collect_reviews(
-            driver, store_name, target_count=50, scroll_wait=2.0
+            driver, str_name, target_count=50, scroll_wait=2.0
         )
 
         # 각 리뷰에 가게 정보 추가 및 CSV 칼럼 순서 맞춤
         for review in reviews:
-            review["store_name"] = store_name
-            review["store_address"] = store_address
+            review["str_name"] = str_name
+            review["str_address"] = str_address
+            review["str_location_keyword"] = str_location_keyword
+            review["str_main_category"] = str_main_category
             collected_reviews.append(
                 {
-                    "store_name": review["store_name"],
-                    "store_address": review["store_address"],
-                    "user_name": review.get("reviewer_name", ""),
-                    "user_rating": review.get("user_rating", 0.0),
+                    "str_name": review["str_name"],
+                    "str_address": review["str_address"],
+                    "str_location_keyword": review["str_location_keyword"],
+                    "str_main_category": review["str_main_category"],
+                    "reviewer_name": review.get("reviewer_name", ""),
+                    "reviewer_score": review.get("reviewer_score", 0.0),
                     "review_date": review.get("review_date", ""),
                     "review_content": review.get("review_content", ""),
                 }
@@ -393,10 +416,12 @@ def process_store_reviews(store_record):
         df = pd.DataFrame(
             collected_reviews,
             columns=[
-                "store_name",
-                "store_address",
-                "user_name",
-                "user_rating",
+                "str_name",
+                "str_address",
+                "str_location_keyword",
+                "str_main_category",
+                "reviewer_name",
+                "reviewer_score",
                 "review_date",
                 "review_content",
             ],
@@ -406,16 +431,16 @@ def process_store_reviews(store_record):
         err_str = str(e).lower()
         if "invalid session id" in err_str:
             logging.error(
-                f"[{store_name}] 세션 오류 발생: 브라우저 세션이 만료되었거나 연결이 끊어짐"
+                f"[{str_name}] 세션 오류 발생: 브라우저 세션이 만료되었거나 연결이 끊어짐"
             )
         elif "no such element" in err_str:
-            logging.error(f"[{store_name}] 요소를 찾을 수 없음: {e}")
+            logging.error(f"[{str_name}] 요소를 찾을 수 없음: {e}")
         elif "timeout" in err_str:
-            logging.error(f"[{store_name}] 페이지 로딩 시간 초과: {e}")
+            logging.error(f"[{str_name}] 페이지 로딩 시간 초과: {e}")
         elif "stale element" in err_str:
-            logging.error(f"[{store_name}] 페이지 변경됨: {e}")
+            logging.error(f"[{str_name}] 페이지 변경됨: {e}")
         else:
-            logging.error(f"[{store_name}] 리뷰 수집 중 예상치 못한 오류 발생: {e}")
+            logging.error(f"[{str_name}] 리뷰 수집 중 예상치 못한 오류 발생: {e}")
         return pd.DataFrame(), False
     finally:
         if driver:
@@ -424,7 +449,7 @@ def process_store_reviews(store_record):
                 if driver.window_handles:
                     driver.switch_to.window(driver.window_handles[0])
             except Exception as e:
-                logging.error(f"[{store_name}] 탭 닫기 중 오류 발생: {e}")
+                logging.error(f"[{str_name}] 탭 닫기 중 오류 발생: {e}")
             return_driver(driver)
 
 
@@ -436,14 +461,17 @@ def main():
     결과를 CSV 파일로 저장하는 전체 프로세스를 실행함.
 
     처리 과정:
-    1. 'data/4_filtered_all/all_filtered_data.csv'에서 매장 데이터 로드
+    1. 'data/5_filtered_all_hour_club_reviewcount/5_filtered_all_hour_club_reviewcount_data.csv'에서 매장 데이터 로드
     2. 멀티스레딩을 사용해 병렬로 각 매장의 리뷰 수집 (매장당 최대 50개 리뷰)
-    3. 수집된 리뷰 데이터를 'data/6_reviews_about_4' 폴더에 저장:
+    3. 수집된 리뷰 데이터를 'data/6_reviews_about_5' 폴더에 저장:
        - 'kakao_map_reviews_all.csv': 모든 리뷰 (빈 리뷰 포함)
        - 'kakao_map_reviews_filtered.csv': 리뷰 내용이 있는 리뷰만 필터링
     4. 리뷰 수집에 실패한 매장 목록을 'failed_stores.txt'에 저장
     """
-    filtered_data_path = "data/4_filtered_all/all_filtered_data.csv"
+    start_time = time.time()
+    logging.info("리뷰 크롤링 시작")
+
+    filtered_data_path = "data/5_filtered_all_hour_club_reviewcount/5_filtered_all_hour_club_reviewcount_data.csv"
     if not os.path.exists(filtered_data_path):
         logging.error(f"가게 데이터 파일을 찾을 수 없습니다: {filtered_data_path}")
         return
@@ -451,6 +479,7 @@ def main():
     # 전체 데이터를 대상으로 실행
     all_filtered_data = pd.read_csv(filtered_data_path)
     stores_data = all_filtered_data
+    total_stores = len(stores_data)
 
     review_dfs = []
     failed_stores = []
@@ -470,7 +499,7 @@ def main():
         반환값:
             pd.DataFrame or None: 수집된 리뷰 DataFrame 또는 None(실패 시)
         """
-        store_name = store_row["name"]
+        store_name = store_row["str_name"]
         logging.info(f"=== '{store_name}' 리뷰 수집 시작 ===")
         df_reviews, success = process_store_reviews(store_row)
         if not success or df_reviews.empty:
@@ -483,7 +512,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=MAX_DRIVERS) as executor:
         future_to_store = {
-            executor.submit(process_store_with_lock, store_row): store_row["name"]
+            executor.submit(process_store_with_lock, store_row): store_row["str_name"]
             for _, store_row in stores_data.iterrows()
         }
         for future in as_completed(future_to_store):
@@ -500,7 +529,7 @@ def main():
 
     if review_dfs:
         all_reviews_df = pd.concat(review_dfs, ignore_index=True)
-        output_dir = "data/6_reviews_about_4"
+        output_dir = "data/6_reviews_about_5"
         os.makedirs(output_dir, exist_ok=True)
 
         # 전체 데이터를 저장하는 파일
@@ -512,8 +541,21 @@ def main():
             f"전체 리뷰 저장 완료: {len(all_reviews_df)}개의 리뷰, 파일: {output_path_all}"
         )
 
-        # 리뷰 내용(review_content)이 비어있는 행은 제거한 파일 (빈 리뷰도 포함시킨 전체 파일과 별도로 저장)
-        filtered_df = all_reviews_df[all_reviews_df["review_content"].str.strip() != ""]
+        # 컨텐츠 기반(리뷰텍스트 기반) 장소 추천 시스템에서 신뢰도 높은 데이터만 사용하기 위함
+        # 주요 컬럼(장소명, 주소, 카테고리, 리뷰어 정보, 리뷰 내용 등) 중 하나라도 결측값(NaN) 또는 빈 값이 있으면 해당 행을 제거
+        # 리뷰 내용만 있는 것이 아니라, 추천 시스템의 입력으로 활용될 모든 필드가 완전하게 채워진 데이터만 남기기 위함
+        required_cols = [
+            "str_name",
+            "str_address",
+            "str_location_keyword",
+            "str_main_category",
+            "reviewer_name",
+            "reviewer_score",
+            "review_date",
+            "review_content",
+        ]
+        filtered_df = all_reviews_df.dropna(subset=required_cols)
+        filtered_df = filtered_df[filtered_df["review_content"].str.strip() != ""]
         output_path_filtered = os.path.join(
             output_dir, "kakao_map_reviews_filtered.csv"
         )
@@ -524,7 +566,7 @@ def main():
             quoting=csv.QUOTE_ALL,
         )
         logging.info(
-            f"리뷰 내용이 있는 리뷰 저장 완료: {len(filtered_df)}개의 리뷰, 파일: {output_path_filtered}"
+            f"리뷰 주요 정보가 모두 있는 리뷰 저장 완료: {len(filtered_df)}개의 리뷰, 파일: {output_path_filtered}"
         )
 
         if failed_stores:
@@ -540,6 +582,20 @@ def main():
     while not driver_pool.empty():
         driver = driver_pool.get()
         driver.quit()
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    hours = int(execution_time // 3600)
+    minutes = int((execution_time % 3600) // 60)
+    seconds = int(execution_time % 60)
+
+    logging.info(f"리뷰 크롤링 완료")
+    logging.info(f"총 실행 시간: {hours}시간 {minutes}분 {seconds}초")
+    logging.info(f"총 매장 수: {total_stores}개")
+    logging.info(f"성공한 매장 수: {len(review_dfs)}개")
+    logging.info(f"실패한 매장 수: {len(failed_stores)}개")
+    logging.info(f"평균 처리 시간: {execution_time/total_stores:.2f}초/매장")
+    logging.info(f"총 수집된 리뷰 수: {len(all_reviews_df) if review_dfs else 0}개")
 
 
 if __name__ == "__main__":

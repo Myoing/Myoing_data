@@ -10,3 +10,6 @@ pydantic
 starlette
 python-multipart
 aiofiles
+sqlalchemy
+pymysql
+cryptography

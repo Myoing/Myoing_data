@@ -174,3 +174,7 @@ cython_debug/
 .pypirc
 
 data/
+.DS_Store
+**/.DS_Store
+
+MVP_data
