@@ -1,11 +1,11 @@
 import os
 import pandas as pd
 from datetime import datetime
-from database import engine
-from models import Base, Store, Review
+from DB_code.database import engine
+from DB_code.models import Base, Store, Review
 from sqlalchemy.orm import Session
 import logging
-from check_missing_values import check_missing_values
+from DB_code.check_missing_values import check_missing_values
 
 """
 ─────────────────────────────────────────────────────────────────────────────
@@ -34,8 +34,12 @@ logger = logging.getLogger(__name__)
 
 # [경로 설정]
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STORES_CSV_PATH = os.path.join(BASE_DIR, "../data/4_filtered_all_hour_club/4_filtered_all_hour_club_data.csv")
-REVIEWS_CSV_PATH = os.path.join(BASE_DIR, "../data/6_reviews_about_5/kakao_map_reviews_filtered.csv")
+STORES_CSV_PATH = os.path.join(
+    BASE_DIR, "../data/4_filtered_all_hour_club/4_filtered_all_hour_club_data.csv"
+)
+REVIEWS_CSV_PATH = os.path.join(
+    BASE_DIR, "../data/6_reviews_about_5/kakao_map_reviews_filtered.csv"
+)
 
 
 # [테이블 생성 함수]
@@ -76,21 +80,41 @@ def migrate_data():
         # 3. 타입 변환
         stores_df["run_time_start"] = stores_df["run_time_start"].apply(convert_time)
         stores_df["run_time_end"] = stores_df["run_time_end"].apply(convert_time)
-        reviews_df["review_date"] = pd.to_datetime(reviews_df["review_date"], errors="coerce")
+        reviews_df["review_date"] = pd.to_datetime(
+            reviews_df["review_date"], errors="coerce"
+        )
 
         # 4. 리뷰어 이름과 리뷰 날짜가 결측인 경우 제거
         #    - reviewer_name을 문자열로 변환하고, 공백 제거 후 빈 문자열("") 또는 NaN인 행을 제거
-        reviews_df["reviewer_name"] = reviews_df["reviewer_name"].astype(str).str.strip()
-        reviews_df = reviews_df.dropna(subset=["review_date"])                     # review_date가 NaT인 행 제거
-        reviews_df = reviews_df[reviews_df["reviewer_name"] != ""]                 # reviewer_name이 빈 문자열인 행 제거
-        reviews_df = reviews_df[~reviews_df["reviewer_name"].isna()]               # reviewer_name이 NaN(원래 NaN이었다가 str 처리로 'nan'이 된 경우도 필터링)
+        reviews_df["reviewer_name"] = (
+            reviews_df["reviewer_name"].astype(str).str.strip()
+        )
+        reviews_df = reviews_df.dropna(
+            subset=["review_date"]
+        )  # review_date가 NaT인 행 제거
+        reviews_df = reviews_df[
+            reviews_df["reviewer_name"] != ""
+        ]  # reviewer_name이 빈 문자열인 행 제거
+        reviews_df = reviews_df[
+            ~reviews_df["reviewer_name"].isna()
+        ]  # reviewer_name이 NaN(원래 NaN이었다가 str 처리로 'nan'이 된 경우도 필터링)
 
         # 5. 리뷰 중복 제거 (reviewer_name + review_date 기준)
-        existing_review = pd.read_sql("SELECT reviewer_name, review_date FROM review_table", engine)
-        existing_review["pk"] = existing_review["reviewer_name"].astype(str) + "-" + \
-                                pd.to_datetime(existing_review["review_date"]).dt.strftime("%Y-%m-%d %H:%M:%S")
-        reviews_df["pk"] = reviews_df["reviewer_name"].astype(str) + "-" + \
-                           reviews_df["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+        existing_review = pd.read_sql(
+            "SELECT reviewer_name, review_date FROM review_table", engine
+        )
+        existing_review["pk"] = (
+            existing_review["reviewer_name"].astype(str)
+            + "-"
+            + pd.to_datetime(existing_review["review_date"]).dt.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        )
+        reviews_df["pk"] = (
+            reviews_df["reviewer_name"].astype(str)
+            + "-"
+            + reviews_df["review_date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+        )
         reviews_df = reviews_df[~reviews_df["pk"].isin(existing_review["pk"])]
         reviews_df = reviews_df.drop(columns=["pk"])
         logger.info(f"중복 제거 후 삽입할 리뷰 수: {len(reviews_df)}건")
@@ -109,7 +133,9 @@ def migrate_data():
 
             session.commit()
 
-        logger.info(f"store_table에 {store_count}개, review_table에 {review_count}개 데이터가 삽입되었습니다.")
+        logger.info(
+            f"store_table에 {store_count}개, review_table에 {review_count}개 데이터가 삽입되었습니다."
+        )
         logger.info("데이터 마이그레이션이 성공적으로 완료되었습니다.")
 
     except Exception as e:
