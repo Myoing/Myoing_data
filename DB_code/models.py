@@ -37,6 +37,8 @@ class Store(Base):
     run_time_end = Column(Time)  # 영업 종료 시간
     str_url = Column(String(255))  # 가게 URL
     str_telephone = Column(String(50))  # 전화번호
+    x = Column(Float, nullable=True)  # x좌표(위도 등), null 허용
+    y = Column(Float, nullable=True)  # y좌표(경도 등), null 허용
 
     # 관계 설정 (1:N)
     reviews = relationship("Review", back_populates="store")
@@ -68,6 +70,7 @@ class Review(Base):
             ["store_table.str_name", "store_table.str_address"],
         ),
     )
+
 
 # [3] UserFeedback 테이블 정의
 class UserFeedback(Base):
